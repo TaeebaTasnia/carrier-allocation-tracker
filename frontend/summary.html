@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weekly summary · Carrier Allocation &amp; Utilization</title>
+<script>
+  try {
+    if (!(localStorage.getItem('ca.signedIn') || sessionStorage.getItem('ca.signedIn'))) location.replace('index.html');
+  } catch (e) {}
+  document.documentElement.classList.add('js');
+  // theme before the first paint (no dark flash): the saved choice, else the system setting.
+  // The toggle is in the top bar (js/shell.js); the colours are in css/tokens.css.
+  (function () { var t = null; try { t = localStorage.getItem('ca.theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t); })();
+</script>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Fraunces:opsz,wght,SOFT,WONK@9..144,600..900,0,0&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/pages.css">
+</head>
+<body>
+<script src="js/shell.js" data-page="summary"></script>
+
+<main class="pg sm" id="main" data-state="loading" aria-busy="true">
+  <div class="pg__head" data-ball="text">
+    <div>
+      <h1 class="pg__title hl" id="title" data-ink>Weekly summary</h1>
+      <p class="pg__sub hl-sub" id="sub" data-ink>&nbsp;</p>
+    </div>
+    <div class="pg__tools">
+      <form class="sm__filters" id="filters" novalidate>
+        <label class="field"><span>Year</span><input class="inp" id="f-year" type="text" inputmode="numeric" maxlength="4" autocomplete="off"></label>
+        <label class="field"><span>From week</span><input class="inp" id="f-from" type="text" inputmode="numeric" maxlength="2" placeholder="1" autocomplete="off"></label>
+        <label class="field"><span>To week</span><input class="inp" id="f-to" type="text" inputmode="numeric" maxlength="2" placeholder="53" autocomplete="off"></label>
+        <button class="btn btn--line" type="submit">Show</button>
+        <button class="btn btn--sec" type="button" id="dl">
+          <svg class="btn__ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v8M4.8 7.8 8 11l3.2-3.2"/><path d="M3 12.5v1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1"/></svg>
+          <span>Download .xlsx</span>
+        </button>
+      </form>
+    </div>
+  </div>
+  <p class="hint hint--err" id="f-err" role="alert" hidden></p>
+  <p class="save__msg" id="dl-msg" role="status" aria-live="polite"></p>
+
+  <div class="msg" id="empty" hidden>
+    <p class="msg__title" data-ink>No weeks on file for this range</p>
+    <p class="msg__body" data-ink>A week appears here once it has a forecast, confirmed space or stuffing. Upload the forecast on the Overview, or widen the range.</p>
+    <div class="msg__act"><a class="btn btn--sec" href="dashboard.html#uploads">Go to uploads</a></div>
+  </div>
+
+  <div class="msg" id="err" role="alert" hidden>
+    <p class="msg__title" data-ink>The summary did not load</p>
+    <p class="msg__body" id="err-body" data-ink></p>
+    <div class="msg__act"><button class="btn btn--line" type="button" id="retry">Try again</button></div>
+  </div>
+
+  <div id="body" data-ball="ui">
+    <table class="t" id="table">
+      <caption class="sr">One row per week: forecast, confirmed, utilized, to be arrived, to be utilized and the deficit or surplus, in TEU. Select a week to open its allocation.</caption>
+      <thead>
+        <tr>
+          <th scope="col">Week</th>
+          <th scope="col" class="is-fc">Forecast<small>MGH, TEU</small></th>
+          <th scope="col">Confirmed<small>all five</small></th>
+          <th scope="col">Utilized</th>
+          <th scope="col">To be arrived</th>
+          <th scope="col">To be utilized<small>left in hand</small></th>
+          <th scope="col">Deficit / surplus<small>left − to be arrived</small></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+      <tfoot id="foot"></tfoot>
+    </table>
+  </div>
+</main>
+
+<footer class="foot" data-ball="text">
+  <p class="round-note" data-ink>TEU figures are rounded up to whole TEU. Totals come from the exact values, so rows may not add up exactly.</p>
+  <p data-ink id="foot-source">Figures in TEU. Within half a TEU either way a week reads as balanced.</p>
+  <p data-ink>MGH · Carrier Allocation &amp; Utilization</p>
+</footer>
+
+<script src="js/numbers.js"></script>
+<script src="js/data.js"></script>
+<script src="js/cursor.js"></script>
+<script src="js/page.js"></script>
+<script src="js/summary.js"></script>
+</body>
+</html>

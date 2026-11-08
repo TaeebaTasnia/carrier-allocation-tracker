@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Date-wise · Carrier Allocation &amp; Utilization</title>
+<script>
+  try {
+    if (!(localStorage.getItem('ca.signedIn') || sessionStorage.getItem('ca.signedIn'))) location.replace('index.html');
+  } catch (e) {}
+  document.documentElement.classList.add('js');
+  // theme before the first paint (no dark flash): the saved choice, else the system setting.
+  // The toggle is in the top bar (js/shell.js); the colours are in css/tokens.css.
+  (function () { var t = null; try { t = localStorage.getItem('ca.theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t); })();
+</script>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Fraunces:opsz,wght,SOFT,WONK@9..144,600..900,0,0&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/pages.css">
+</head>
+<body>
+<script src="js/shell.js" data-page="datewise"></script>
+
+<main class="pg dw" id="main" data-state="loading" aria-busy="true">
+  <div class="pg__head" data-ball="text">
+    <div>
+      <h1 class="pg__title hl" id="title" data-ink>Date-wise</h1>
+      <p class="pg__sub hl-sub" id="sub" data-ink>&nbsp;</p>
+    </div>
+    <div class="pg__tools">
+      <a class="link" data-nav="weekly" href="weekly.html">Confirmed space for this week</a>
+    </div>
+  </div>
+
+  <div class="msg msg--inline" id="empty" hidden>
+    <div>
+      <p class="msg__title" data-ink>Nothing on file for this week</p>
+      <p class="msg__body" data-ink>Days fill in from the forecast (by Rfi date) and the daily stuffing reports. Upload them on the Overview.</p>
+    </div>
+    <a class="btn btn--sec btn--small" href="dashboard.html#uploads">Go to uploads</a>
+  </div>
+
+  <div class="msg" id="err" role="alert" hidden>
+    <p class="msg__title" data-ink>The week did not load</p>
+    <p class="msg__body" id="err-body" data-ink></p>
+    <div class="msg__act"><button class="btn btn--line" type="button" id="retry">Try again</button></div>
+  </div>
+
+  <div id="body">
+    <dl class="dw__sum figset" data-ball="text">
+      <div class="is-fc"><dd><span id="s-fc">—</span><span class="unit">TEU</span></dd><dt>Forecast for the week</dt></div>
+      <div class="is-sec"><dd><span id="s-act">—</span><span class="unit">TEU</span></dd><dt>Arrived so far</dt></div>
+      <div><dd><span id="s-tba">—</span><span class="unit">TEU</span></dd><dt>To be arrived</dt></div>
+      <div><dd><span id="s-left">—</span><span class="unit">TEU</span></dd><dt>Left in hand</dt></div>
+      <div id="s-bal-row"><dd><span id="s-bal">—</span><span class="unit">TEU</span></dd><dt id="s-bal-word">Deficit / surplus</dt></div>
+    </dl>
+
+    <p class="dw__split" data-ball="text" data-ink>Arrived CBM comes from the daily stuffing report (CBM column if the file has one, otherwise TEU x CBM per TEU). You can adjust a day if needed.</p>
+
+    <div class="dw__wrap" data-ball="ui">
+      <table class="t" id="table">
+        <caption class="sr">Stuffed TEU per carrier, forecast volume and the arrived CBM (from the stuffing report, or adjusted) for each day of the selected week, then the week's confirmed, utilized, left and share per carrier</caption>
+        <thead>
+          <tr class="grow">
+            <td></td>
+            <th scope="colgroup" colspan="6" class="grp grow__stuffed">Stuffed<small>loaded containers, from the stuffing report</small></th>
+            <th scope="colgroup" colspan="2" class="is-fc grp">Forecast</th>
+            <th scope="colgroup" colspan="3" class="grp grow__arrived">Arrived<small>from the stuffing report</small></th>
+          </tr>
+          <tr id="head-row">
+            <th scope="col">Day</th>
+            <!-- carrier columns are added by datewise.js -->
+            <th scope="col" class="grp">Stuffed<small>TEU, all</small></th>
+            <th scope="col" class="is-fc grp">Forecast<small>CBM +30%</small></th>
+            <th scope="col" class="is-fc">Forecast<small>TEU</small></th>
+            <th scope="col" class="grp">Actual CBM<small>computed</small></th>
+            <th scope="col">Adjust<small>optional, CBM</small></th>
+            <th scope="col">Actual<small>TEU</small></th>
+          </tr>
+        </thead>
+        <tbody id="days"></tbody>
+        <tbody class="calc" id="calc"></tbody>
+      </table>
+    </div>
+    <p class="hint">Actual CBM is worked out for you from the stuffing report. To replace a day, type a CBM in Adjust and press Enter; the cross removes the adjustment and the computed value comes back. The week balance updates as you type.</p>
+  </div>
+</main>
+
+<footer class="foot" data-ball="text">
+  <p class="round-note" data-ink>TEU figures are rounded up to whole TEU. Totals come from the exact values, so rows may not add up exactly.</p>
+  <p data-ink id="foot-source">Figures in TEU unless marked CBM.</p>
+  <p data-ink>MGH · Carrier Allocation &amp; Utilization</p>
+</footer>
+
+<script src="js/numbers.js"></script>
+<script src="js/data.js"></script>
+<script src="js/cursor.js"></script>
+<script src="js/page.js"></script>
+<script src="js/datewise.js"></script>
+</body>
+</html>

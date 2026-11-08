@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings · Carrier Allocation &amp; Utilization</title>
+<script>
+  try {
+    if (!(localStorage.getItem('ca.signedIn') || sessionStorage.getItem('ca.signedIn'))) location.replace('index.html');
+  } catch (e) {}
+  document.documentElement.classList.add('js');
+  // theme before the first paint (no dark flash): the saved choice, else the system setting.
+  // The toggle is in the top bar (js/shell.js); the colours are in css/tokens.css.
+  (function () { var t = null; try { t = localStorage.getItem('ca.theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t); })();
+</script>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Fraunces:opsz,wght,SOFT,WONK@9..144,600..900,0,0&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/pages.css">
+</head>
+<body>
+<script src="js/shell.js" data-page="settings"></script>
+
+<main class="pg" id="main" data-state="loading" aria-busy="true">
+  <div class="pg__head" data-ball="text">
+    <div>
+      <h1 class="pg__title hl" id="title" data-ink>Settings</h1>
+      <p class="pg__sub hl-sub" id="sub" data-ink>How forecast volume becomes TEU, how it is split between carriers, which shipping line belongs to which carrier, and who counts as an MGH supplier.</p>
+    </div>
+  </div>
+
+  <div class="msg" id="err" role="alert" hidden>
+    <p class="msg__title" data-ink>Settings did not load</p>
+    <p class="msg__body" id="err-body" data-ink></p>
+    <div class="msg__act"><button class="btn btn--line" type="button" id="retry">Try again</button></div>
+  </div>
+
+  <form id="cfg" novalidate data-ball="ui">
+    <div class="st">
+      <section class="st__sec" aria-labelledby="calc-title">
+        <h2 id="calc-title">Calculation</h2>
+        <p>Forecast CBM is uplifted, then divided into TEU. FML is outside the split and gets its own weekly forecast.</p>
+        <div class="st__grid">
+          <div class="field">
+            <label for="c-uplift">Uplift on forecast CBM, %</label>
+            <input class="big" id="c-uplift" type="text" aria-describedby="c-uplift-h">
+            <p class="hint" id="c-uplift-h">Above −100.</p>
+          </div>
+          <div class="field">
+            <label for="c-cbm">CBM per TEU</label>
+            <input class="big" id="c-cbm" type="text" aria-describedby="c-cbm-h">
+            <p class="hint" id="c-cbm-h">More than 0.</p>
+          </div>
+          <div class="field">
+            <label for="c-fml">FML forecast, TEU a week</label>
+            <input class="big" id="c-fml" type="text" aria-describedby="c-fml-h">
+            <p class="hint" id="c-fml-h">The default when a week sets none.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="st__sec" aria-labelledby="split-title">
+        <h2 id="split-title">Forecast split</h2>
+        <p>The share of the MGH forecast that goes to each carrier. It must total 100.</p>
+        <div class="split" id="split"></div>
+        <div class="split__bar" id="split-bar" aria-hidden="true"></div>
+        <p class="split__total" id="split-total" aria-live="polite"><b id="split-sum">—</b><span class="split__word" id="split-word"></span></p>
+      </section>
+
+      <section class="st__sec st__sec--wide lm" aria-labelledby="lm-title">
+        <h2 id="lm-title">Shipping lines</h2>
+        <p>Each shipping line in the stuffing report is counted for one carrier. Names match without regard to case or spaces at the ends. A line with no carrier here is reported as unmapped and not counted.</p>
+        <table class="t lm__table">
+          <caption class="sr">Shipping line to carrier mapping</caption>
+          <thead><tr><th scope="col">Shipping line, as written in the stuffing report</th><th scope="col" class="th-left">Carrier</th><th scope="col"><span class="sr">Remove</span></th></tr></thead>
+          <tbody id="lm-rows"></tbody>
+        </table>
+        <div class="lm__more"><button class="btn btn--line btn--small" type="button" id="lm-add">Add a shipping line</button></div>
+      </section>
+    </div>
+
+    <div class="st__save">
+      <section class="save" id="save" data-state="clean" aria-label="Save settings">
+        <span class="travel" aria-hidden="true"></span>
+        <div class="save__row">
+          <button class="btn btn--sec" type="submit" id="save-btn" disabled>Save settings</button>
+          <button class="btn btn--line" type="button" id="revert" hidden>Undo changes</button>
+          <p class="save__msg" id="save-msg" role="status" aria-live="polite">No changes.</p>
+        </div>
+      </section>
+      <p class="st__recalc"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16 10a6 6 0 1 1-1.8-4.3M16 3.5v3.2h-3.2"/></svg><span>Nothing is stored per week: every figure is worked out when it is shown. Saving here recalculates <strong>every week</strong>, past ones included, on the Overview, in data entry and in the reports.</span></p>
+    </div>
+  </form>
+
+  <section class="st__sec sup" id="sup" aria-labelledby="sup-title" data-ball="ui">
+    <h2 id="sup-title">MGH suppliers</h2>
+    <p class="sup__fixed">The supplier list is fixed for now. Add a new supplier here when one joins.</p>
+    <p>Only forecast lines from these supplier codes count as MGH. Adding or removing a supplier is saved at once.</p>
+    <form class="sup__add" id="sup-add" novalidate>
+      <label class="field"><span>Supplier code</span><input class="inp" id="s-code" type="text" autocomplete="off" required></label>
+      <label class="field"><span>Name</span><input class="inp" id="s-name" type="text" autocomplete="off"></label>
+      <label class="field"><span>CW code</span><input class="inp" id="s-cw" type="text" autocomplete="off"></label>
+      <button class="btn btn--sec" type="submit" id="s-btn">Add supplier</button>
+    </form>
+    <div class="sup__tools">
+      <p class="sup__count" aria-live="polite"><span id="sup-n">—</span><small>suppliers</small></p>
+      <label class="field"><span>Find</span><input class="inp" id="sup-find" type="search" placeholder="Code or name" autocomplete="off"></label>
+    </div>
+    <p class="save__msg" id="sup-msg" role="status" aria-live="polite"></p>
+    <div class="sup__list">
+      <table class="t">
+        <caption class="sr">MGH supplier list</caption>
+        <thead><tr><th scope="col">Code</th><th scope="col">Name</th><th scope="col">CW code</th><th scope="col"><span class="sr">Remove</span></th></tr></thead>
+        <tbody id="sup-rows"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<footer class="foot" data-ball="text">
+  <p data-ink id="foot-source">Settings apply to every week.</p>
+  <p data-ink>MGH · Carrier Allocation &amp; Utilization</p>
+</footer>
+
+<script src="js/numbers.js"></script>
+<script src="js/data.js"></script>
+<script src="js/cursor.js"></script>
+<script src="js/page.js"></script>
+<script src="js/settings.js"></script>
+</body>
+</html>

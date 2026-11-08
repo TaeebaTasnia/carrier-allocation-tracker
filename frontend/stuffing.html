@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daily stuffing · Carrier Allocation &amp; Utilization</title>
+<script>
+  try {
+    if (!(localStorage.getItem('ca.signedIn') || sessionStorage.getItem('ca.signedIn'))) location.replace('index.html');
+  } catch (e) {}
+  document.documentElement.classList.add('js');
+  // theme before the first paint (no dark flash): the saved choice, else the system setting.
+  // The toggle is in the top bar (js/shell.js); the colours are in css/tokens.css.
+  (function () { var t = null; try { t = localStorage.getItem('ca.theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t); })();
+</script>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Fraunces:opsz,wght,SOFT,WONK@9..144,600..900,0,0&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/pages.css">
+<link rel="stylesheet" href="css/stuffing.css">
+</head>
+<body>
+<script src="js/shell.js" data-page="stuffing"></script>
+
+<main class="pg sf" id="main" data-state="loading" aria-busy="true">
+  <div class="pg__head" data-ball="text">
+    <div>
+      <h1 class="pg__title hl" id="title" data-ink>Daily stuffing</h1>
+      <p class="pg__sub hl-sub" id="sub" data-ink>&nbsp;</p>
+    </div>
+    <div class="pg__tools">
+      <a class="link" data-nav="datewise" href="datewise.html">Date-wise for this week</a>
+    </div>
+  </div>
+
+  <div class="msg" id="err" role="alert" hidden>
+    <p class="msg__title" data-ink>The week did not load</p>
+    <p class="msg__body" id="err-body" data-ink></p>
+    <div class="msg__act"><button class="btn btn--line" type="button" id="retry">Try again</button></div>
+  </div>
+
+  <div id="body">
+    <nav class="sf__strip" aria-label="Days of the selected week" data-ball="ui">
+      <ol id="days"></ol>
+    </nav>
+
+    <section class="sf__day" aria-labelledby="day-title">
+      <div class="sf__dayhead" data-ball="text">
+        <h2 class="sf__daytitle" id="day-title" data-ink>&nbsp;</h2>
+        <p class="sf__dayline" id="day-line" data-ink></p>
+      </div>
+
+      <div class="sf__wrap" data-ball="ui">
+        <table class="t sf__t" id="table">
+          <caption class="sr">Stuffing rows for the selected day. One row per booking: shipping line, quantity, TEUs, vessels and their dates, and an optional CBM.</caption>
+          <thead>
+            <tr>
+              <th scope="col" class="sf__hn"><span class="sr">Row</span></th>
+              <th scope="col" class="th-left">Shipping line</th>
+              <th scope="col">Qty</th>
+              <th scope="col">TEUs</th>
+              <th scope="col" class="th-left">Feeder vessel</th>
+              <th scope="col" class="th-left">FVSL ETD</th>
+              <th scope="col" class="th-left">FVSL ETA</th>
+              <th scope="col" class="th-left">Mother vessel</th>
+              <th scope="col" class="th-left">MVSL ETD</th>
+              <th scope="col" class="th-left">MVSL ETA</th>
+              <th scope="col">CBM<small>optional</small></th>
+              <th scope="col"><span class="sr">Remove row</span></th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+
+      <div class="sf__empty" id="empty" hidden data-ball="text">
+        <p data-ink>No rows for this day yet. Add a row, or paste the day from Excel below.</p>
+      </div>
+
+      <div class="sf__tools" data-ball="ui">
+        <button class="btn btn--line btn--small" type="button" id="add">Add row</button>
+        <button class="btn btn--line btn--small" type="button" id="paste-toggle" aria-expanded="false" aria-controls="paste">Paste from Excel</button>
+      </div>
+
+      <div class="sf__warn" id="warn" hidden data-ball="text"></div>
+
+      <dl class="sf__sum figset" id="sum" data-ball="text" aria-label="TEU per carrier for the rows on screen"></dl>
+
+      <div class="save sf__save" id="save" data-state="clean" data-ball="ui">
+        <div class="save__row">
+          <button class="btn btn--sec" type="button" id="save-btn" disabled>Save day</button>
+          <button class="btn btn--line" type="button" id="del-btn" disabled>Delete this day</button>
+          <p class="save__msg" id="save-msg" role="status"></p>
+        </div>
+        <span class="travel" aria-hidden="true"></span>
+      </div>
+
+      <section class="sf__paste" id="paste" hidden aria-labelledby="paste-title" data-ball="ui">
+        <h3 class="sf__pastetitle" id="paste-title">Paste from Excel</h3>
+        <p class="hint">Copy the rows in Excel and paste them here. Columns in this order: Shipping line, Qty, TEUs, Feeder vessel, FVSL ETD, FVSL ETA, Mother vessel, MVSL ETD, MVSL ETA, and CBM if you have it. A header row is fine. Dates are read day first (05/11/2026 is 5 November). An empty TEUs cell becomes 2 x Qty.</p>
+        <label class="sr" for="paste-in">Rows copied from Excel (tab separated)</label>
+        <textarea class="inp sf__ta" id="paste-in" rows="6" spellcheck="false" placeholder="MAERSK&#9;4&#9;8&#9;MSC ALPHA&#9;05/11/2026&#9;07/11/2026&#9;MAERSK SEOUL&#9;10/11/2026&#9;28/11/2026"></textarea>
+        <p class="hint" id="paste-msg" role="status"></p>
+        <div class="sf__prev" id="prev" hidden></div>
+        <div class="sf__tools">
+          <button class="btn btn--sec btn--small" type="button" id="paste-add" disabled>Add rows</button>
+          <button class="btn btn--line btn--small" type="button" id="paste-replace" disabled>Replace rows</button>
+          <button class="btn btn--line btn--small" type="button" id="paste-clear">Clear</button>
+        </div>
+      </section>
+    </section>
+  </div>
+</main>
+
+<footer class="foot" data-ball="text">
+  <p class="round-note" data-ink>TEU figures are rounded up to whole TEU. Totals come from the exact values, so rows may not add up exactly.</p>
+  <p data-ink id="foot-source">Figures in TEU unless marked CBM.</p>
+  <p data-ink>MGH · Carrier Allocation &amp; Utilization</p>
+</footer>
+
+<script src="js/numbers.js"></script>
+<script src="js/data.js"></script>
+<script src="js/cursor.js"></script>
+<script src="js/page.js"></script>
+<script src="js/stuffing.js"></script>
+</body>
+</html>

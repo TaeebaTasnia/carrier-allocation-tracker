@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Export · Carrier Allocation &amp; Utilization</title>
+<script>
+  try {
+    if (!(localStorage.getItem('ca.signedIn') || sessionStorage.getItem('ca.signedIn'))) location.replace('index.html');
+  } catch (e) {}
+  document.documentElement.classList.add('js');
+  // theme before the first paint (no dark flash): the saved choice, else the system setting.
+  // The toggle is in the top bar (js/shell.js); the colours are in css/tokens.css.
+  (function () { var t = null; try { t = localStorage.getItem('ca.theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t); })();
+</script>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Fraunces:opsz,wght,SOFT,WONK@9..144,600..900,0,0&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/pages.css">
+<link rel="stylesheet" href="css/reports.css">
+</head>
+<body>
+<script src="js/shell.js" data-page="export"></script>
+
+<main class="pg exp" id="main" data-state="ready">
+  <div class="pg__head" data-ball="text">
+    <div>
+      <h1 class="pg__title hl" id="title" data-ink>Export</h1>
+      <p class="pg__sub hl-sub" id="sub" data-ink>Two Excel workbooks, made by the backend from the figures on file. Choose the weeks, check the file name, download.</p>
+    </div>
+  </div>
+
+  <div class="ex">
+    <!-- (a) weekly summary -->
+    <section class="ex__sec ex__sec--sum" id="sum" aria-labelledby="h-sum" data-ball="ui">
+      <h2 id="h-sum" data-ink>Weekly summary</h2>
+      <ul class="ex__list" aria-label="What the workbook contains">
+        <li>One row per week on file: <b>forecast, confirmed, utilized, to be arrived, to be utilized, deficit or surplus</b> and its status</li>
+        <li>A <b>total</b> row for the weeks you choose</li>
+        <li>Sheet UTILIZATION, figures kept unrounded and shown to 2 decimals</li>
+      </ul>
+      <form class="ex__fields" id="sum-form" novalidate>
+        <label class="field"><span>Year</span><input class="inp" id="s-year" type="text" inputmode="numeric" maxlength="4" autocomplete="off"></label>
+        <label class="field"><span>From week</span><input class="inp" id="s-from" type="text" inputmode="numeric" maxlength="2" placeholder="1" autocomplete="off"></label>
+        <label class="field"><span>To week</span><input class="inp" id="s-to" type="text" inputmode="numeric" maxlength="2" placeholder="53" autocomplete="off"></label>
+      </form>
+      <p class="hint hint--err" id="s-err" role="alert" hidden></p>
+      <div class="ex__file">
+        <span>File name</span>
+        <p class="ex__name" id="s-name">weekly-summary.xlsx</p>
+        <p class="ex__avail" id="s-avail" aria-live="polite">&nbsp;</p>
+      </div>
+      <div class="ex__go">
+        <button class="btn btn--acc" type="button" id="s-dl">
+          <svg class="btn__ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v8M4.8 7.8 8 11l3.2-3.2"/><path d="M3 12.5v1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1"/></svg>
+          <span>Download weekly summary</span>
+        </button>
+        <a class="link" id="s-view" data-nav="summary" href="summary.html">See it on screen</a>
+      </div>
+      <div class="ex__state" id="s-state" data-state="idle" role="status" aria-live="polite">
+        <span class="travel" aria-hidden="true"></span>
+        <p class="ex__msg" id="s-msg"></p>
+      </div>
+    </section>
+
+    <!-- (b) allocation vs utilization -->
+    <section class="ex__sec ex__sec--av" id="av" aria-labelledby="h-av" data-ball="ui">
+      <h2 id="h-av" data-ink>Allocation vs Utilization</h2>
+      <ul class="ex__list" aria-label="What the workbook contains">
+        <li>The week’s line: <b>forecast, confirmed, utilized, to be arrived, deficit or surplus</b></li>
+        <li>Per carrier: <b>forecast, confirmed, utilized, left</b>, share of utilized and % of confirmed</li>
+        <li>Day by day: <b>stuffed TEU per carrier</b>, forecast CBM and TEU, arrived CBM and TEU (from the stuffing report; empty where no stuffing was reported), with totals</li>
+        <li>One workbook per week, sheet UTILIZATION</li>
+      </ul>
+      <fieldset class="ex__mode">
+        <legend>Weeks</legend>
+        <div class="seg">
+          <label><input type="radio" name="av-mode" value="one" checked><span>One week</span></label>
+          <label><input type="radio" name="av-mode" value="range"><span>Every week with data in a range</span></label>
+        </div>
+      </fieldset>
+      <form class="ex__fields" id="av-form" novalidate>
+        <label class="field"><span>Year</span><input class="inp" id="a-year" type="text" inputmode="numeric" maxlength="4" autocomplete="off"></label>
+        <label class="field" id="a-week-f"><span>Week</span><input class="inp" id="a-week" type="text" inputmode="numeric" maxlength="2" autocomplete="off"></label>
+        <label class="field" id="a-from-f" hidden><span>From week</span><input class="inp" id="a-from" type="text" inputmode="numeric" maxlength="2" placeholder="1" autocomplete="off"></label>
+        <label class="field" id="a-to-f" hidden><span>To week</span><input class="inp" id="a-to" type="text" inputmode="numeric" maxlength="2" placeholder="53" autocomplete="off"></label>
+      </form>
+      <p class="hint hint--err" id="a-err" role="alert" hidden></p>
+      <div class="ex__file">
+        <span id="a-name-label">File name</span>
+        <p class="ex__name" id="a-name">allocation-vs-utilization.xlsx</p>
+        <p class="ex__avail" id="a-avail" aria-live="polite">&nbsp;</p>
+      </div>
+      <div class="ex__go">
+        <button class="btn btn--acc" type="button" id="a-dl">
+          <svg class="btn__ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v8M4.8 7.8 8 11l3.2-3.2"/><path d="M3 12.5v1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1"/></svg>
+          <span id="a-dl-label">Download this week</span>
+        </button>
+        <a class="link" id="a-view" href="allocvsutil.html">See it on screen</a>
+      </div>
+      <div class="ex__state" id="a-state" data-state="idle" role="status" aria-live="polite">
+        <span class="travel" aria-hidden="true"></span>
+        <p class="ex__msg" id="a-msg"></p>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="foot" data-ball="text">
+  <p class="round-note" data-ink>TEU figures are rounded up to whole TEU. Totals come from the exact values, so rows may not add up exactly.</p>
+  <p data-ink id="foot-source">Files come straight from the backend; nothing is calculated in the browser.</p>
+  <p data-ink>MGH · Carrier Allocation &amp; Utilization</p>
+</footer>
+
+<script src="js/numbers.js"></script>
+<script src="js/data.js"></script>
+<script src="js/cursor.js"></script>
+<script src="js/page.js"></script>
+<script src="js/export.js"></script>
+</body>
+</html>

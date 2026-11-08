@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weekly allocation · Carrier Allocation &amp; Utilization</title>
+<script>
+  try {
+    if (!(localStorage.getItem('ca.signedIn') || sessionStorage.getItem('ca.signedIn'))) location.replace('index.html');
+  } catch (e) {}
+  document.documentElement.classList.add('js');
+  // theme before the first paint (no dark flash): the saved choice, else the system setting.
+  // The toggle is in the top bar (js/shell.js); the colours are in css/tokens.css.
+  (function () { var t = null; try { t = localStorage.getItem('ca.theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t); })();
+</script>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Fraunces:opsz,wght,SOFT,WONK@9..144,600..900,0,0&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/pages.css">
+</head>
+<body>
+<script src="js/shell.js" data-page="weekly"></script>
+
+<main class="pg" id="main" data-state="loading" aria-busy="true">
+  <div class="pg__head" data-ball="text">
+    <div>
+      <h1 class="pg__title hl" id="title" data-ink>Weekly allocation</h1>
+      <p class="pg__sub hl-sub" id="sub" data-ink>&nbsp;</p>
+    </div>
+    <div class="pg__tools">
+      <a class="link" id="to-datewise" data-nav="datewise" href="datewise.html">Date-wise for this week</a>
+    </div>
+  </div>
+
+  <div class="msg msg--inline" id="nofc" hidden>
+    <div>
+      <p class="msg__title" data-ink>No forecast uploaded for this week</p>
+      <p class="msg__body" data-ink>Forecast and the carrier split fill in from the forecast workbook. You can still enter confirmed space now.</p>
+    </div>
+    <a class="btn btn--sec btn--small" id="to-uploads" href="dashboard.html#uploads">Upload the forecast</a>
+  </div>
+
+  <div class="msg" id="err" role="alert" hidden>
+    <p class="msg__title" data-ink>The week did not load</p>
+    <p class="msg__body" id="err-body" data-ink></p>
+    <div class="msg__act"><button class="btn btn--line" type="button" id="retry">Try again</button></div>
+  </div>
+
+  <form class="wk" id="wk" novalidate data-ball="ui">
+    <div class="wk__main">
+      <table class="t wk__table" id="table">
+        <caption class="sr">Confirmed space per carrier for the selected week, in TEU</caption>
+        <thead>
+          <tr>
+            <th scope="col">Carrier</th>
+            <th scope="col" class="is-fc">Forecast<small>auto-filled</small></th>
+            <th scope="col">Confirmed<small>type TEU</small></th>
+            <th scope="col">Utilized<small>from stuffing</small></th>
+            <th scope="col">Left<small>confirmed − utilized</small></th>
+            <th scope="col">Used<small>of confirmed</small></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+        <tfoot>
+          <tr>
+            <th scope="row">Total</th>
+            <td data-label="Forecast, MGH"><span class="n n--fc" id="t-fc">—</span><span class="fml-note">FML not included</span></td>
+            <td data-label="Confirmed, all five" class="cf-cell"><span class="n" id="t-cf">—</span></td>
+            <td data-label="Utilized"><span class="n" id="t-ut">—</span></td>
+            <td data-label="Left"><span class="n" id="t-left">—</span></td>
+            <td data-label="Used"><span class="ubar" id="t-bar"><span class="ubar__track"><span class="ubar__fill"></span></span><span class="ubar__v" id="t-pct">—</span></span></td>
+          </tr>
+        </tfoot>
+      </table>
+      <p class="hint hint--keys">Enter moves to the next carrier. Arrow Up and Down change the figure by 1 (Shift 10, Alt 0.1). Esc puts back the saved value.</p>
+    </div>
+
+    <aside class="wk__side" aria-label="Week balance and saving">
+      <section class="save" id="save" data-state="clean" aria-labelledby="save-title">
+        <h2 id="save-title" class="sr">Save</h2>
+        <span class="travel" aria-hidden="true"></span>
+        <div class="save__row">
+          <button class="btn btn--sec" type="submit" id="save-btn" disabled>Save week</button>
+          <button class="btn btn--line" type="button" id="revert" hidden>Undo changes</button>
+        </div>
+        <p class="save__msg" id="save-msg" role="status" aria-live="polite">No changes.</p>
+      </section>
+
+      <section aria-labelledby="bal-title">
+        <h2 id="bal-title">The week as typed</h2>
+        <dl class="figset" id="figs">
+          <div class="is-fc"><dd><span id="f-fc">—</span><span class="unit">TEU</span></dd><dt>Forecast, MGH (FML not included)</dt></div>
+          <div class="is-sec"><dd><span id="f-cf">—</span><span class="unit">TEU</span></dd><dt>Confirmed, five carriers</dt></div>
+          <div><dd><span id="f-left">—</span><span class="unit">TEU</span></dd><dt>Left in hand</dt></div>
+          <div><dd><span id="f-tba">—</span><span class="unit">TEU</span></dd><dt>To be arrived</dt></div>
+          <div id="f-bal-row"><dd><span id="f-bal">—</span><span class="unit">TEU</span></dd><dt id="f-bal-word">Deficit / surplus</dt></div>
+        </dl>
+      </section>
+
+      <section class="fmlbox" aria-labelledby="fml-title">
+        <h2 id="fml-title">FML forecast</h2>
+        <p class="note-fine">FML sits outside the MGH split. Its forecast is the default from Settings unless you set one for this week.</p>
+        <div class="fmlbox__row">
+          <label class="sr" for="fml">FML forecast for this week, TEU</label>
+          <input class="big big--sm" id="fml" type="text" aria-describedby="fml-state">
+          <span class="fmlbox__unit">TEU</span>
+        </div>
+        <p class="hint" id="fml-state">&nbsp;</p>
+        <button class="link" type="button" id="fml-reset" hidden>Reset to the default</button>
+      </section>
+    </aside>
+  </form>
+</main>
+
+<footer class="foot" data-ball="text">
+  <p class="round-note" data-ink>TEU figures are rounded up to whole TEU. Totals come from the exact values, so rows may not add up exactly.</p>
+  <p data-ink id="foot-source">Figures in TEU.</p>
+  <p data-ink>MGH · Carrier Allocation &amp; Utilization</p>
+</footer>
+
+<script src="js/numbers.js"></script>
+<script src="js/data.js"></script>
+<script src="js/cursor.js"></script>
+<script src="js/page.js"></script>
+<script src="js/weekly.js"></script>
+</body>
+</html>

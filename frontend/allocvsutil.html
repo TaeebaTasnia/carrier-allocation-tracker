@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Allocation vs Utilization · Carrier Allocation &amp; Utilization</title>
+<script>
+  try {
+    if (!(localStorage.getItem('ca.signedIn') || sessionStorage.getItem('ca.signedIn'))) location.replace('index.html');
+  } catch (e) {}
+  document.documentElement.classList.add('js');
+  // theme before the first paint (no dark flash): the saved choice, else the system setting.
+  // The toggle is in the top bar (js/shell.js); the colours are in css/tokens.css.
+  (function () { var t = null; try { t = localStorage.getItem('ca.theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t); })();
+</script>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Fraunces:opsz,wght,SOFT,WONK@9..144,600..900,0,0&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/pages.css">
+<link rel="stylesheet" href="css/reports.css">
+</head>
+<body>
+<script src="js/shell.js" data-page="allocvsutil"></script>
+
+<main class="pg av" id="main" data-state="loading" aria-busy="true">
+  <div class="pg__head" data-ball="text">
+    <div>
+      <h1 class="pg__title hl" id="title" data-ink>Allocation vs Utilization</h1>
+      <p class="pg__sub hl-sub" id="sub" data-ink>&nbsp;</p>
+    </div>
+    <div class="pg__tools">
+      <a class="link" data-nav="weekly" href="weekly.html">Edit confirmed space</a>
+      <button class="btn btn--sec" type="button" id="dl">
+        <svg class="btn__ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v8M4.8 7.8 8 11l3.2-3.2"/><path d="M3 12.5v1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1"/></svg>
+        <span>Download .xlsx</span>
+      </button>
+    </div>
+  </div>
+  <p class="save__msg av__dl" id="dl-msg" role="status" aria-live="polite"></p>
+
+  <div class="msg" id="empty" hidden>
+    <p class="msg__title" data-ink>No forecast for this week yet</p>
+    <p class="msg__body" id="empty-body" data-ink>This report compares each carrier’s forecast share with the space you confirmed and what was stuffed. Upload the forecast workbook on the Overview, then enter confirmed TEU in Weekly allocation.</p>
+    <div class="msg__act">
+      <a class="btn btn--sec" href="dashboard.html#uploads">Go to uploads</a>
+      <a class="link" data-nav="weekly" href="weekly.html">Weekly allocation</a>
+    </div>
+  </div>
+
+  <div class="msg msg--inline" id="nofc" hidden>
+    <div>
+      <p class="msg__title" data-ink>No forecast on file for this week</p>
+      <p class="msg__body" data-ink>Confirmed space and stuffing are shown, but there is no forecast to compare them with. Upload the forecast on the Overview.</p>
+    </div>
+    <a class="btn btn--sec btn--small" href="dashboard.html#uploads">Go to uploads</a>
+  </div>
+
+  <div class="msg" id="err" role="alert" hidden>
+    <p class="msg__title" data-ink>The report did not load</p>
+    <p class="msg__body" id="err-body" data-ink></p>
+    <div class="msg__act"><button class="btn btn--line" type="button" id="retry">Try again</button></div>
+  </div>
+
+  <div class="av__loading" id="loading" aria-hidden="true"><span class="travel"></span></div>
+
+  <div id="body" hidden>
+    <section class="av__sec" aria-labelledby="h-car">
+      <div class="av__sechead">
+        <h2 id="h-car" data-ink>Each carrier on one scale</h2>
+        <ul class="av__key" aria-label="How to read the bars" data-ball="text">
+          <li><i class="k k--box" aria-hidden="true"></i><span data-ink>Confirmed space</span></li>
+          <li><i class="k k--fill" aria-hidden="true"></i><span data-ink>Utilized (stuffed)</span></li>
+          <li><i class="k k--over" aria-hidden="true"></i><span data-ink>Over confirmed</span></li>
+          <li><i class="k k--fc" aria-hidden="true"></i><span data-ink>Forecast</span></li>
+        </ul>
+      </div>
+      <div class="av__wrap" data-ball="ui">
+        <table class="t av__t" id="lanes">
+          <caption class="sr">Per carrier: forecast, confirmed and utilized TEU drawn on one shared scale, then confirmed minus forecast, left, utilization as a share of confirmed, and share of the week's utilized TEU. Select a carrier to edit its confirmed space.</caption>
+          <thead>
+            <tr>
+              <th scope="col">Carrier</th>
+              <th scope="col" class="av__scalehead"><span class="sr">Bars on a shared TEU scale</span><span class="av__axis" id="axis" aria-hidden="true"></span></th>
+              <th scope="col" class="is-fc">Forecast<small>share, TEU</small></th>
+              <th scope="col">Confirmed<small>TEU</small></th>
+              <th scope="col">vs forecast<small>confirmed − forecast</small></th>
+              <th scope="col">Utilized<small>TEU</small></th>
+              <th scope="col">Left<small>confirmed − utilized</small></th>
+              <th scope="col">Of confirmed<small>utilized %</small></th>
+              <th scope="col">Share<small>of week utilized</small></th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+          <tfoot id="foot"></tfoot>
+        </table>
+      </div>
+      <p class="hint av__note" data-ink>The forecast total is the MGH forecast and leaves out FML, which is booked on its own (FML’s forecast is its weekly figure). The confirmed total includes FML. Negative vs forecast means confirmed is below the forecast.</p>
+    </section>
+
+    <section class="av__sec" aria-labelledby="h-days">
+      <div class="av__sechead">
+        <h2 id="h-days" data-ink>Day by day</h2>
+        <p class="av__lede" data-ink>Stuffed TEU per carrier for each day (loaded containers). The deeper the colour, the busier the cell. Arrived is the CBM from the daily stuffing report (its CBM column if the file has one, otherwise TEU x CBM per TEU, or a figure adjusted in Date-wise) divided by the CBM per TEU. Select a day to open it in Date-wise.</p>
+      </div>
+      <div class="av__wrap" data-ball="ui">
+        <table class="t av__grid" id="grid">
+          <caption class="sr">Stuffed TEU per carrier and day, with the day total, the forecast TEU and the TEU arrived (from the stuffing report) for each day of the selected week.</caption>
+          <thead><tr id="grid-head"></tr></thead>
+          <tbody id="grid-rows"></tbody>
+          <tfoot id="grid-foot"></tfoot>
+        </table>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="foot" data-ball="text">
+  <p class="round-note" data-ink>TEU figures are rounded up to whole TEU. Totals come from the exact values, so rows may not add up exactly.</p>
+  <p data-ink id="foot-source">Figures in TEU.</p>
+  <p data-ink>MGH · Carrier Allocation &amp; Utilization</p>
+</footer>
+
+<script src="js/numbers.js"></script>
+<script src="js/data.js"></script>
+<script src="js/cursor.js"></script>
+<script src="js/page.js"></script>
+<script src="js/allocvsutil.js"></script>
+</body>
+</html>

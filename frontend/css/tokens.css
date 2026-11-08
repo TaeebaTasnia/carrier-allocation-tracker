@@ -1,0 +1,256 @@
+/* Shared design tokens for every dashboard page (Overview now; Data entry, Reports, Settings next).
+ *
+ * Ground and ink come from the landing footage (dusk navy, cream). Contrast against the lightest
+ * part of the page ground (#17283c, top of the gradient) is noted beside each text colour.
+ *
+ * Accents: one per data source, used for the same thing everywhere (heading, top rule, main button,
+ * drop field, result figures). Pages that show data from that source reuse the same accent.
+ *   --acc-forecast   amber: the plan, the warm dusk light of the footage
+ *   --acc-stuffing   teal:  what is physically loaded; the water colour of the jars, brighter
+ *   --acc-suppliers  coral: the partner list; a light coral kept clearly lighter and pinker than
+ *                    the hull red that means deficit
+ * Each accent has an -ink (navy text on a filled accent), -line (hairline/outline) and -wash (tint).
+ */
+:root {
+  /* ground */
+  --night: #05080c;
+  --dusk: #0b141f;
+  --dusk-2: #0f1c2b;
+  --surface: #0d1825;
+
+  /* ink on the ground (ratios vs #0b141f / #17283c) */
+  --ink: #f7f4ee;                          /* 17.0 / 13.2 */
+  --ink-2: rgba(247, 244, 238, 0.82);      /* 11.6 /  9.6 */
+  --ink-3: rgba(247, 244, 238, 0.66);      /*  7.8 /  6.8  (muted text floor) */
+  --ink-in: #0b141f;                       /* navy text on light fills (buttons, skip link) */
+
+  /* cursor ball (css/base.css .ball, js/cursor.js). The core re-inks what is under it:
+   * grayscale -> invert -> brightness(pivot) -> contrast -> sepia(warm).
+   * pivot: lower = more of the page counts as "text" (goes dark); the threshold sits at a grey of
+   *   1 - 0.5/pivot (0.72 -> 0.31): the ground (grey <= 0.16) turns light, every text colour (grey
+   *   >= 0.43, the deficit red is the darkest) turns dark.
+   * contrast: steepness of the cut; 3 keeps anti-aliased edges soft, palette contrast >= 8:1
+   *   (the deficit red, nearest the cut, about 10:1). warm: 0 = white/black, 0.4 = cream ball. */
+  --ball-size: 60px;                       /* diameter at scale 1 (over headings and figures); cursor-sized */
+  --ball-pivot: 0.72;
+  --ball-contrast: 3;
+  --ball-warm: 0.4;
+
+  /* data colours */
+  --steel: #8fb0cf;
+  --steel-hi: #b7d0e8;
+  --red: #d4553a;                          /* deficit, overflow: large figures and marks only */
+  --red-text: #ec7a5f;                     /* the same red for small text: 6.6 / 5.4 */
+  --sea: #8cc2b2;                          /* surplus: 9.2 / 7.5 */
+
+  /* source accents (ratios on the ground, and navy text on the accent) */
+  --acc-forecast: #f0b75a;                 /* 10.3 / 8.3, navy on it 10.3 */
+  --acc-forecast-line: rgba(240, 183, 90, 0.55);
+  --acc-forecast-wash: rgba(240, 183, 90, 0.08);
+  --acc-stuffing: #5ccfd0;                 /* 10.0 / 8.0, navy on it 10.0 */
+  --acc-stuffing-line: rgba(92, 207, 208, 0.55);
+  --acc-stuffing-wash: rgba(92, 207, 208, 0.08);
+  --acc-suppliers: #f6a28c;                /* 9.2 / 7.5, navy on it 9.2 */
+  --acc-suppliers-line: rgba(246, 162, 140, 0.55);
+  --acc-suppliers-wash: rgba(246, 162, 140, 0.08);
+
+  /* water: the jars, the Still to arrive tube and any other water. Sky blue, kept lighter and
+   * bluer than the stuffing teal #5ccfd0. */
+  --water: #5ec3f5;                        /* 9.4 / 7.5 */
+  --water-hi: #a6e1ff;
+  --water-deep: #1f6fa8;
+
+  /* headings: one display face and one accent colour for every page title (swap here) */
+  --display: "Fraunces", "Cormorant Garamond", Georgia, serif;
+  --head-accent: #8fd8ff;                  /* sky, 11.9 / 9.6 */
+
+  /* page headline system (css/base.css .hl, js/page.js CA.page.pop): the Overview headline and
+   * every page title. The face is loaded in each page head as
+   *   Fraunces:opsz,wght,SOFT,WONK@9..144,600..900,0,0
+   * opsz and wght are live (any --hl-weight from 600 to 900, any --hl-opsz from 9 to 144);
+   * SOFT and WONK are pinned to 0 in that URL (sharp terminals, no leaning "wonky" letters), so
+   * setting them in CSS does nothing: change the URL instead. */
+  --hl-family: var(--display);
+  --hl-weight: 800;                        /* heavy, but... */
+  --hl-opsz: 72;                           /* ...drawn from a display optical size above the set
+                                              size: sharper contrast and a tighter fit than auto
+                                              (opsz = px size), without the near-vanishing
+                                              hairlines and cramped word spaces of 144 */
+  --hl-track: -0.018em;                    /* tracking */
+  --hl-leading: 1.02;                      /* line height */
+  --hl-size-hero: clamp(32px, 3.3vw, 54px);/* Overview headline */
+  --hl-size-page: clamp(36px, 4.2vw, 62px);/* page titles */
+  --hl-accent: var(--head-accent);         /* the one accent: key figure / key words only */
+  --hl-sub-weight: 400;                    /* sub line (Inter), --ink-2 */
+  --hl-rule-w: 56px;                       /* the hairline under the headline */
+  --hl-rule-h: 1px;
+  --hl-rule-c: var(--sec, var(--steel-hi));/* section colour (Overview steel, Data entry teal, ...) */
+
+  /* the reveal: each line rises out of its own clipped mask, then the hairline draws, then the sub */
+  --hl-dur: 920ms;                         /* one line rising */
+  --hl-step: 90ms;                         /* between lines, line -> hairline, hairline -> sub */
+  --hl-ease: cubic-bezier(0.22, 1, 0.36, 1);/* long quint ease-out: glides in, no overshoot
+                                              (expo .16,1,.3,1 felt snappy: 70% done in 100 ms) */
+  --hl-exit: 260ms;                        /* week change: the old line leaves upward */
+  --hl-ease-exit: cubic-bezier(0.5, 0, 0.75, 0);
+
+  /* carriers: one fixed hue each, used for the same carrier everywhere (jar rim and name, table
+   * row marker, name, bars). Ordered so neighbours stay apart for colour-blind readers
+   * (validated with the dataviz palette script against #0b141f: adjacent CVD dE >= 9.9, normal
+   * vision dE >= 15.5; brighter than its dark band on purpose, so names can be set in the hue).
+   * Text contrast on #0b141f / #17283c: */
+  --car-maersk: #4f9fec;                   /* azure    6.6 / 5.3 */
+  --car-hapag: #ef6f9f;                    /* rose     6.6 / 5.3 */
+  --car-hellman: #c9c234;                  /* citron   9.9 / 8.0 */
+  --car-one: #42b979;                      /* green    7.5 / 6.0 */
+  --car-fml: #a9b4ff;                      /* periwinkle blue 9.4 / 7.6 */
+
+  /* sections: the tab indicator, page heading rule and main button of each part of the app */
+  --sec-overview: var(--steel-hi);
+  --sec-entry: var(--acc-stuffing);
+  --sec-reports: var(--acc-forecast);
+  --sec-settings: var(--acc-suppliers);
+
+  /* rules */
+  --rule: rgba(247, 244, 238, 0.14);
+  --rule-2: rgba(247, 244, 238, 0.24);
+
+  /* type */
+  --serif: "Cormorant Garamond", "Cormorant", Garamond, "Times New Roman", serif;
+  --sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* motion */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);       /* arrivals */
+  --ease-ui: cubic-bezier(0.2, 0.8, 0.2, 1);   /* hovers, indicators */
+  --ease-settle: cubic-bezier(0.12, 0.8, 0.18, 1); /* number rollers locking in */
+
+  /* ---- theme plumbing: every colour the CSS and the jar canvas use, so the light theme below can
+   * swap them. Dark values are exactly the old hard-coded ones. ---- */
+  --scheme: dark;                          /* color-scheme of the page, date pickers, selects */
+  --ink-rgb: 247, 244, 238;                /* rgba(var(--ink-rgb), a): washes, rules, hover fills */
+  --ground-glow-rgb: 23, 40, 60;           /* the lit top of the page ground (#17283c) */
+  --ground-mid-rgb: 8, 16, 26;             /* the ground two thirds down (#08101a) */
+  --ground-solid: #0a131d;                 /* opaque ground for sticky table cells */
+  --ground-today: #0f2128;                 /* the sticky cell of today's row */
+  --menu-bg: #0d1825;                      /* menus, select options */
+  --tip-bg: rgba(13, 24, 37, 0.97);        /* jar tooltip */
+  --shadow-pop: 0 18px 40px -12px rgba(0, 0, 0, 0.6);
+  --shadow-tip: 0 18px 40px -12px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-box: 0 8px 14px -8px rgba(0, 0, 0, 0.7);
+  --mix-hover: #fff;                       /* a filled button mixes 14% of this in on hover */
+  --steel-rgb: 143, 176, 207;
+  --steel-hi-rgb: 183, 208, 232;
+  --red-rgb: 212, 85, 58;
+  --red-text-rgb: 236, 122, 95;
+  --water-rgb: 94, 195, 245;
+  --acc-forecast-rgb: 240, 183, 90;
+  --jar-red-rgb: 226, 108, 82;             /* over-used rim and spill on the jar canvas */
+  --jar-hi-rgb: 247, 244, 238;             /* light caught on glass (jar, tube): stays light */
+  --bubble: rgba(247, 244, 238, 0.7);
+  --fill-hatch: rgba(11, 20, 31, 0.24);    /* hatch lines over a solid carrier fill */
+  --heat-k: 1;                             /* strength of the day-grid heat cells */
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 6.5 8 10l3.5-3.5' fill='none' stroke='%23f7f4ee' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E");
+  --ball-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='168' height='168'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='1' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.969 0 0 0 0 0.957 0 0 0 0 0.933 2.6 0 0 0 -1.15'/%3E%3C/filter%3E%3Crect width='168' height='168' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---------- LIGHT THEME (html[data-theme="light"]) ----------
+ * Set before first paint by the inline script in each page head (saved choice in localStorage
+ * 'ca.theme', else prefers-color-scheme); the toggle is in the top bar (js/shell.js).
+ * Same family as the dark design, turned over: the cream becomes the paper and the navy becomes
+ * the ink. Every accent is re-derived darker so text keeps >= 4.5:1 on the paper. Ratios below are
+ * vs the top / bottom of the paper (#f7f4ee / #efe9de); a filled accent carries cream text at the
+ * first figure.
+ *   - water and the heading accent: deep ocean blue instead of sky
+ *   - amber, teal, coral, red, sea: the dark theme's hues at ink depth (coral stays rosier and
+ *     softer than the deficit red)
+ *   - carriers: same five hues, darker; checked for colour-blind separation like the dark set
+ *     (adjacent CVD dE >= 5, normal dE >= 10; every name is also written out)
+ */
+:root[data-theme="light"] {
+  --scheme: light;
+
+  /* ground: warm paper, slightly deeper toward the foot, lit at the top */
+  --night: #efe9de;
+  --dusk: #f7f4ee;
+  --dusk-2: #f3efe7;
+  --surface: #fdfbf6;
+  --ground-glow-rgb: 253, 251, 247;
+  --ground-mid-rgb: 243, 238, 229;
+  --ground-solid: #f4f0e7;
+  --ground-today: #e1e6df;
+  --menu-bg: #fdfbf6;
+  --tip-bg: rgba(253, 251, 246, 0.98);
+
+  /* ink */
+  --ink: #0b141f;                          /* 16.9 / 15.3 */
+  --ink-2: rgba(11, 20, 31, 0.82);         /* 10.2 /  9.5 */
+  --ink-3: rgba(11, 20, 31, 0.68);         /*  6.2 /  5.9  (muted text floor) */
+  --ink-in: #f7f4ee;                       /* cream text on dark fills (buttons, skip link) */
+  --ink-rgb: 11, 20, 31;
+
+  /* the cursor ball on paper: the same filter chain turns the paper dark and every ink light
+   * (a dark lens with cream type). The cut sits at a grey of 1 - 0.5/pivot = 0.69: the paper
+   * (grey >= 0.9) goes dark, every text colour (grey <= 0.45) comes out light. */
+  --ball-pivot: 1.6;
+  --ball-contrast: 3;
+  --ball-warm: 0.35;
+  --ball-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='168' height='168'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='1' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.043 0 0 0 0 0.078 0 0 0 0 0.122 2.6 0 0 0 -1.15'/%3E%3C/filter%3E%3Crect width='168' height='168' filter='url(%23n)'/%3E%3C/svg%3E");
+
+  /* data colours */
+  --steel: #43637f;                        /* 5.7 / 5.2 */
+  --steel-hi: #3a5a79;                     /* 6.6 / 6.0 (overview colour, focus ring) */
+  --steel-rgb: 67, 99, 127;
+  --steel-hi-rgb: 58, 90, 121;
+  --red: #b0301a;                          /* 5.9 / 5.4 */
+  --red-text: #a3311a;                     /* 6.4 / 5.8 */
+  --red-rgb: 176, 48, 26;
+  --red-text-rgb: 163, 49, 26;
+  --sea: #246a56;                          /* 5.9 / 5.3 */
+
+  /* source accents */
+  --acc-forecast: #845406;                 /* 5.9 / 5.3 */
+  --acc-forecast-rgb: 132, 84, 6;
+  --acc-forecast-line: rgba(132, 84, 6, 0.55);
+  --acc-forecast-wash: rgba(132, 84, 6, 0.08);
+  --acc-stuffing: #0a6869;                 /* 6.0 / 5.4 */
+  --acc-stuffing-line: rgba(10, 104, 105, 0.55);
+  --acc-stuffing-wash: rgba(10, 104, 105, 0.08);
+  --acc-suppliers: #9e4638;                /* 5.7 / 5.1 */
+  --acc-suppliers-line: rgba(158, 70, 56, 0.55);
+  --acc-suppliers-wash: rgba(158, 70, 56, 0.08);
+
+  /* water: deep ocean blue (still bluer than the stuffing teal) */
+  --water: #17649a;                        /* 5.8 / 5.2 */
+  --water-hi: #5fa3d6;
+  --water-deep: #0b4470;
+  --water-rgb: 23, 100, 154;
+
+  --head-accent: #0c6093;                  /* 6.2 / 5.6 */
+
+  /* carriers (text on the paper, top / bottom) */
+  --car-maersk: #165a9e;                   /* azure    6.4 / 5.8 */
+  --car-hapag: #aa2e66;                    /* rose     5.8 / 5.3 */
+  --car-hellman: #745d00;                  /* citron   5.8 / 5.3 */
+  --car-one: #106c48;                      /* green    5.9 / 5.3 */
+  --car-fml: #6152bf;                      /* periwinkle 5.5 / 5.0 */
+
+  /* rules, shadows, fills */
+  --rule: rgba(11, 20, 31, 0.13);
+  --rule-2: rgba(11, 20, 31, 0.24);
+  --shadow-pop: 0 18px 40px -16px rgba(11, 20, 31, 0.26), 0 1px 2px rgba(11, 20, 31, 0.06);
+  --shadow-tip: 0 18px 40px -16px rgba(11, 20, 31, 0.26), 0 2px 6px rgba(11, 20, 31, 0.08);
+  --shadow-box: 0 7px 12px -8px rgba(11, 20, 31, 0.3);
+  --mix-hover: #0b141f;                    /* hover deepens a filled button (cream label stays >= 6:1) */
+  --jar-red-rgb: 176, 48, 26;
+  --jar-hi-rgb: 255, 255, 255;
+  --bubble: rgba(255, 255, 255, 0.8);
+  --fill-hatch: rgba(247, 244, 238, 0.3);
+  --heat-k: 0.7;
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 6.5 8 10l3.5-3.5' fill='none' stroke='%230b141f' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+[data-carrier="MAERSK"]  { --car: var(--car-maersk); }
+[data-carrier="HAPAG"]   { --car: var(--car-hapag); }
+[data-carrier="HELLMAN"] { --car: var(--car-hellman); }
+[data-carrier="ONE"]     { --car: var(--car-one); }
+[data-carrier="FML"]     { --car: var(--car-fml); }

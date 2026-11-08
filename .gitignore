@@ -1,0 +1,9 @@
+# Rebuildable / local-only (everything else is committed on purpose, including data files)
+.venv/
+**/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+node_modules/
+.claude-flow/
+*.log
