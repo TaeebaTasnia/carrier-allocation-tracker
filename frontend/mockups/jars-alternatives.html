@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en" data-view="batt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Battery mockup · Overview</title>
+<script>
+  // MOCKUP ONLY, not part of the app: no sign-in guard (neither the app's inline guard nor js/shell.js is
+  // loaded), no backend calls, nothing saved into the app's own settings.
+  // Theme before first paint: ?theme=light|dark (not saved), else this mockup's own saved choice
+  // ('ca.mock.theme'), else the app's 'ca.theme' (read only), else the system setting.
+  // View: ?view=jars|batt (default batteries).
+  (function () {
+    var t = null, q = /[?&]theme=(light|dark)/.exec(location.search);
+    if (q) t = q[1];
+    else { try { t = localStorage.getItem('ca.mock.theme') || localStorage.getItem('ca.theme'); } catch (e) {} }
+    if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+    var v = /[?&]view=(jars|batt)/.exec(location.search);
+    if (v) document.documentElement.setAttribute('data-view', v[1]);
+  })();
+</script>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Fraunces:opsz,wght,SOFT,WONK@9..144,600..900,0,0&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/tokens.css">
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../css/dashboard.css">
+<link rel="stylesheet" href="../css/jars.css">
+<link rel="stylesheet" href="jars-alternatives.css">
+</head>
+<body>
+
+<!-- a static copy of the app's top bar (no links): only here to show the batteries in place -->
+<header class="bar">
+  <span class="bar__brand"><img src="../assets/mgh-logo-white.png" alt="MGH"></span>
+  <nav class="tabs" aria-label="App sections (mockup, not links)">
+    <span class="tab" aria-current="page"><span>Overview</span></span>
+    <span class="tab"><span>Data entry</span></span>
+    <span class="tab"><span>Reports</span></span>
+    <span class="tab"><span>Settings</span></span>
+  </nav>
+  <div class="bar__end">
+    <div class="mk-switch" role="radiogroup" aria-label="Compare at the same size">
+      <button type="button" role="radio" data-view="jars" aria-checked="false" tabindex="-1">Jars</button>
+      <button type="button" role="radio" data-view="batt" aria-checked="true" tabindex="0">Batteries</button>
+    </div>
+    <span class="week__now"><span class="week__w">W45</span><span class="week__y">2026</span></span>
+    <button class="theme" id="theme" type="button" aria-pressed="false" aria-label="Light theme">
+      <svg class="theme__sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1"/></svg>
+      <svg class="theme__moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.2 9.6A5.6 5.6 0 0 1 6.4 2.8a5.6 5.6 0 1 0 6.8 6.8z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="ov" id="main" data-state="ready">
+  <div class="head">
+    <h1 class="headline hl" id="headline">Week 45: <span class="hl-num">32</span> TEU left to use</h1>
+    <span class="hl-rule" aria-hidden="true"></span>
+    <p class="sub hl-sub">2 to 8 November 2026. 41 TEU is still to arrive, so the week is 9 TEU short.</p>
+  </div>
+
+  <section class="figs" aria-labelledby="figs-title">
+    <h2 class="sr" id="figs-title">Week totals in TEU</h2>
+    <ol class="figs__list">
+      <li><div class="fig"><span class="fig__num"><span class="fig__v">73</span></span><span class="fig__label">Forecast, MGH (FML not included)</span></div></li>
+      <li><div class="fig"><span class="fig__num"><span class="fig__v">64</span></span><span class="fig__label">Confirmed, five carriers</span></div></li>
+      <li><div class="fig"><span class="fig__num"><span class="fig__v">32</span></span><span class="fig__label">Utilized</span></div></li>
+      <li><div class="fig is-on"><span class="fig__num"><span class="fig__v">32</span></span><span class="fig__label">Left in hand</span></div></li>
+      <li><div class="fig"><span class="fig__num"><span class="fig__v">41</span></span><span class="fig__label">To be arrived</span></div></li>
+      <li><div class="fig fig--balance is-deficit"><span class="fig__num"><span class="fig__v">−9</span></span><span class="fig__label">Deficit</span></div></li>
+    </ol>
+  </section>
+
+  <section class="stage" aria-labelledby="stage-title" data-focus="left">
+    <h2 class="sr" id="stage-title">Capacity left per carrier</h2>
+    <div class="stage__row" id="jars"></div>
+    <div class="readout" id="readout" aria-live="polite" hidden>
+      <p class="readout__title" id="readout-title"></p>
+      <dl class="tip__rows" id="readout-rows"></dl>
+    </div>
+    <p class="stage__key stage__key--jars">
+      <span class="key key--glass">Glass: confirmed space</span>
+      <span class="key key--water">Water: TEU left (confirmed − utilized)</span>
+      <span class="key key--tick">Amber tick: forecast allocation</span>
+      <span class="key key--ghost">Dashed glass, faint hatched water: forecast only, no space confirmed</span>
+    </p>
+    <p class="stage__key stage__key--batt">
+      <span class="key key--case">Battery: confirmed space (1 block = 4 TEU)</span>
+      <span class="key key--cell">Lit blocks: TEU left</span>
+      <span class="key key--tick">Amber tick: forecast allocation</span>
+      <span class="key key--over">Red above the cap: over confirmed</span>
+      <span class="key key--ghostb">Dashed: forecast only, none confirmed</span>
+    </p>
+  </section>
+
+  <aside class="notes" aria-label="How the week balances">
+    <section class="note note--balance" aria-labelledby="balance-title">
+      <h2 class="note__title" id="balance-title">How the balance is worked out</h2>
+      <dl class="ledger">
+        <div><dt>Left in hand</dt><dd>32</dd></div>
+        <div><dt><span aria-hidden="true">−&ensp;</span>To be arrived</dt><dd>41</dd></div>
+        <div class="ledger__sum"><dt>Deficit</dt><dd>−9</dd></div>
+      </dl>
+      <p class="note__fine">Left in hand is confirmed space minus what is already utilized, across all five carriers. Within half a TEU either way the week reads as balanced.</p>
+    </section>
+    <section class="note mk-note" aria-labelledby="mk-title">
+      <h2 class="note__title" id="mk-title">About this mockup</h2>
+      <p class="note__fine">Only the jars are replaced; the batteries sit in exactly the same space (same row, same height scale, same labels). Use the Jars / Batteries switch in the top bar to compare.</p>
+      <p class="note__fine">Week 45 demo numbers, with ONE stuffed 4 TEU over its confirmed space so the over-use state shows. Not wired to the app.</p>
+    </section>
+  </aside>
+</main>
+
+<footer class="foot">
+  <p>Figures in TEU, rounded up to whole TEU. 1 TEU is 33 CBM after the 30% uplift.</p>
+  <p>MGH · Carrier Allocation &amp; Utilization · mockup</p>
+</footer>
+
+<template id="jar-tpl">
+  <div class="jar">
+    <div class="jar__glass"><canvas aria-hidden="true"></canvas></div>
+    <button class="jar__btn" type="button">
+      <span class="jar__name"></span>
+      <span class="jar__left"><span class="jar__v"></span><span class="jar__unit"></span></span>
+      <span class="jar__pct"></span>
+    </button>
+    <div class="tip" role="tooltip">
+      <p class="tip__title"></p>
+      <dl class="tip__rows"></dl>
+    </div>
+  </div>
+</template>
+
+<script src="../js/numbers.js"></script>
+<script src="../js/jars.js"></script>
+<script src="jars-alternatives.js"></script>
+</body>
+</html>

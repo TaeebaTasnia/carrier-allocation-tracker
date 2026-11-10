@@ -1,0 +1,244 @@
+/* Carrier row options: MOCKUP ONLY. Loaded after ../css/tokens.css, ../css/base.css and ../css/dashboard.css
+   (the real Overview styles), so the figures, labels, legend and tooltips are the app's own. Only the six
+   options and the option switch are styled here. Nothing here is loaded by the app. */
+
+/* ---------- carrier colours for the six options (the Jars view keeps the app's own --car-*) ----------
+   Same refined set as the battery mockup (checked with the dataviz palette validator, all pairs):
+     dark  (#0b141f): CVD worst dE 12.5, normal worst 17.2; names >= 5.6:1 on the ground
+     light (#efe9de): CVD worst dE 6.5 (floor band: every unit is also named), normal worst 15.5;
+                      names >= 4.7:1 on the ground */
+:root:not([data-view="jars"]) {
+  --car-maersk: #80ccf4;
+  --car-hapag: #ff779a;
+  --car-hellman: #dae18c;
+  --car-one: #38a300;
+  --car-fml: #858bf1;
+  --mk-used: rgba(247, 244, 238, 0.5);     /* thin "utilized" arc: graphics >= 3:1 on the ground */
+  --mk-bed: rgba(247, 244, 238, 0.07);     /* the faint full lap under a ring */
+  --mk-ghost: rgba(247, 244, 238, 0.62);   /* dashed "forecast only" outlines */
+}
+:root[data-theme="light"]:not([data-view="jars"]) {
+  --car-maersk: #505dc2;
+  --car-hapag: #9b4975;
+  --car-hellman: #663700;
+  --car-one: #286721;
+  --car-fml: #51198d;
+  --mk-used: rgba(11, 20, 31, 0.58);
+  --mk-bed: rgba(11, 20, 31, 0.07);
+  --mk-ghost: rgba(11, 20, 31, 0.62);
+}
+
+/* ---------- which view is on ---------- */
+:root[data-view="jars"] .alt,
+:root[data-view="jars"] .stage__key--alt,
+:root:not([data-view="jars"]) #jars,
+:root:not([data-view="jars"]) .stage__key--jars { display: none; }
+
+/* ---------- the option switch: its own strip under the bar ---------- */
+.mk-strip { display: flex; justify-content: center; padding: 14px var(--gutter) 0; }
+.mk-switch {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  border: 1px solid var(--rule-2); border-radius: 4px; padding: 3px; gap: 3px;
+  max-width: 100%;
+}
+.mk-switch button {
+  padding: 6px 12px; border-radius: 2px;
+  font-size: 12.5px; font-weight: 500; color: var(--ink-2);
+  transition: background-color 0.16s var(--ease-ui), color 0.16s var(--ease-ui);
+}
+.mk-switch button:hover { color: var(--ink); background: rgba(var(--ink-rgb), 0.06); }
+.mk-switch button[aria-checked="true"] { background: var(--ink); color: var(--ink-in); }
+.mk-switch button:focus-visible { outline-offset: 1px; }
+.mk-switch .is-ref { font-style: italic; }
+.tab { cursor: default; }
+.mk-note { padding-top: 6px; }
+.mk-note .note__fine + .note__fine { margin-top: 8px; }
+
+/* ---------- the options' container (takes the jar row's place) ---------- */
+.alt {
+  position: relative;
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 22px clamp(4px, 1vw, 18px);
+  align-content: center;
+  align-items: end;
+  padding: 18px 0 4px;
+  min-height: 300px;
+}
+.u { min-width: 0; }
+/* the name carries the carrier hue, as on the Overview (the app paints it through data-ink; no cursor ball here) */
+.u .jar__name, .u .jar__left, .u .jar__pct { color: var(--c); }
+.u .jar__btn { height: auto; width: 100%; padding-bottom: 4px; }
+.u .tip { bottom: calc(100% - 26px); }
+.u__fig { display: block; margin-bottom: 10px; }
+.u__fig svg { display: block; width: 100%; height: auto; margin: 0 auto; overflow: visible; }
+.u__fig--donut svg, .u__fig--bubble svg { max-width: 150px; }
+.u__fig--gauge svg { max-width: 172px; }
+.u__fig--grid svg { width: auto; height: 152px; max-width: 100%; }
+/* donut and gauge carry the TEU-left figure inside the shape: the label keeps it for screen readers only */
+.u--donut .jar__left, .u--gauge .jar__left {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* ---------- shared marks ---------- */
+.alt svg text { font-variant-numeric: lining-nums tabular-nums; }
+.arc { fill: none; stroke-dashoffset: 0; }
+.ctr { font-family: var(--serif); font-weight: 600; font-size: 36px; fill: var(--ink); text-anchor: middle; }
+.ctr--red { fill: var(--red-text); }
+.ctr--muted { fill: var(--ink-3); }
+.ctr--dial { font-size: 58px; }
+.ctr-sub { font-family: var(--sans); font-size: 10.5px; fill: var(--ink-2); text-anchor: middle; letter-spacing: 0.03em; }
+.a-left { stroke: var(--car); stroke-width: 9; }
+.a-used { stroke: var(--mk-used); stroke-width: 3; }
+.a-bed, .ring-bed { fill: none; stroke: var(--mk-bed); stroke-width: 9; }
+.a-over-full { stroke: var(--red); stroke-width: 9; }   /* solid: 4.6:1 dark, 5.3:1 light */
+.a-over { stroke: var(--red); stroke-width: 5; }
+.a-ghost, .ring-ghost { fill: none; stroke: var(--mk-ghost); stroke-width: 1.6; stroke-dasharray: 2.4 1.8; stroke-dashoffset: 0 !important; }
+.ring-ghost { stroke-dasharray: 5 4; }
+.a-fc-run { stroke: var(--acc-forecast); stroke-width: 1.6; }
+.mk-fc { stroke: var(--acc-forecast); stroke-width: 2.8; stroke-linecap: round; }
+.mk-zero { stroke: var(--red); stroke-width: 1.5; }
+
+/* gauge */
+.sv-gauge .a-left, .sv-gauge .a-bed, .sv-gauge .a-over-full, .sv-gauge .a-over { stroke-width: 12; }
+.sv-gauge .a-used { stroke-width: 3.5; }
+.mk-end { stroke: var(--ink-3); stroke-width: 1; }
+.end-lab { font-family: var(--sans); font-size: 10px; fill: var(--ink-3); text-anchor: middle; }
+.needle { transform-box: view-box; transform-origin: 70px 70px; transform: rotate(var(--rot)); }
+.needle line { stroke: var(--acc-forecast); stroke-width: 3; stroke-linecap: round; }
+.needle .needle__halo { stroke: var(--dusk); stroke-width: 6.5; }
+
+/* bubbles */
+.b-cap { fill: color-mix(in srgb, var(--car) 22%, transparent); stroke: var(--car); stroke-width: 1.5; }
+.b-cap--over { fill: color-mix(in srgb, var(--red) 34%, transparent); stroke: var(--red); }
+.b-left { fill: var(--car); }
+.b-halo { fill: none; stroke: color-mix(in srgb, var(--red) 42%, transparent); }
+.b-halo-edge { fill: none; stroke: var(--red); stroke-width: 1.6; }
+.b-fc { fill: none; stroke: var(--acc-forecast); stroke-width: 1.5; stroke-dasharray: 3.5 3; }
+.b-ghost { fill: none; stroke: var(--mk-ghost); stroke-width: 1.6; stroke-dasharray: 4 3; }
+.pop { transform-box: fill-box; transform-origin: center; }
+
+/* container grid */
+.sq-used { fill: var(--car); }
+.sq-left { fill: none; stroke: var(--car); stroke-width: 1.3; }
+.sq-over { fill: var(--red); }
+.sq-ghost { fill: none; stroke: var(--mk-ghost); stroke-width: 1; stroke-dasharray: 2 1.6; }
+.g-fc { fill: none; stroke: var(--acc-forecast); stroke-width: 1.7; stroke-linejoin: round; stroke-linecap: round; }
+.g-fc.is-above { stroke-dasharray: 3 2; }
+.g-tick { stroke: var(--acc-forecast); stroke-width: 2.2; stroke-linecap: round; }
+
+/* ---------- dial ---------- */
+.alt--dial { display: block; padding-top: 6px; }
+.dial-wrap { display: flex; justify-content: center; }
+.sv-dial { display: block; width: min(100%, 390px); height: auto; overflow: visible; }
+.sv-dial .a-left, .sv-dial .a-over-full, .sv-dial .a-over, .sv-dial .d-track { stroke-width: 17; }
+.sv-dial .a-used { stroke-width: 3.5; }
+.d-track { fill: none; stroke: var(--mk-bed); }
+.d-grid { stroke: rgba(var(--ink-rgb), 0.09); stroke-width: 1; }
+.d-hit { fill: none; stroke: transparent; stroke-width: 27; pointer-events: stroke; }
+.d-name { font-family: var(--sans); font-size: 10.5px; font-weight: 600; letter-spacing: 0.12em; fill: var(--car); text-anchor: end; }
+.d-scale { font-family: var(--sans); font-size: 10px; fill: var(--ink-3); text-anchor: middle; dominant-baseline: middle; }
+.ring { outline: none; transition: opacity 0.18s var(--ease-ui); }
+.ring:focus-visible .d-hit { stroke: rgba(var(--ink-rgb), 0.12); }
+.alt[data-hl] .ring:not(.is-hl) { opacity: 0.22; }
+.dial-labels { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px clamp(4px, 1vw, 18px); margin-top: 8px; }
+.u--dial { transition: opacity 0.18s var(--ease-ui); }
+.alt[data-hl] .u--dial:not(.is-hl) { opacity: 0.4; }
+.u--dial.is-hl .jar__name { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+
+/* ---------- bullet bars ---------- */
+.alt--bullet { grid-template-columns: minmax(0, 1fr); gap: 4px; align-content: center; }
+.u--bullet .jar__btn {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr) 96px;
+  grid-template-areas: "name bar left" "pct bar left";
+  column-gap: 20px;
+  align-items: center;
+  text-align: left;
+  padding: 9px 0;
+}
+.u--bullet .jar__name { grid-area: name; align-self: end; }
+.u--bullet .jar__pct { grid-area: pct; align-self: start; }
+.u--bullet .jar__left { grid-area: left; margin: 0; text-align: right; white-space: nowrap; }
+.u--bullet .jar__unit { display: block; margin-top: 1px; }
+.u--bullet .tip, .u--bullet:nth-child(n+4) .tip { left: auto; right: 0; bottom: calc(100% - 6px); }
+.bl__bar { grid-area: bar; position: relative; display: block; height: 26px; }
+.bl__bar > i { position: absolute; display: block; top: 0; bottom: 0; }
+.bl__grid { width: 1px; top: -9px !important; bottom: -9px !important; background: var(--rule); }
+.bl__cap { left: 0; background: color-mix(in srgb, var(--car) 28%, transparent); box-shadow: inset 0 0 0 1.5px var(--car); border-radius: 0 4px 4px 0; }
+.bl__used { left: 0; background: var(--car); border-radius: 0 4px 4px 0; }
+.bl__over {
+  border-radius: 0 4px 4px 0; margin-left: 2px;
+  background-color: var(--red);
+  background-image: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0 2px, transparent 2px 6px);
+}
+.bl__ghost { left: 0; border: 1.6px dashed var(--mk-ghost); border-left-style: solid; border-radius: 0 4px 4px 0; }
+.bl__fc { width: 3px; margin-left: -1.5px; top: -6px !important; bottom: -6px !important; border-radius: 2px; background: var(--acc-forecast); box-shadow: 0 0 0 2px var(--dusk); }
+.grow { transform-origin: 0 50%; }
+.bl__axis { display: grid; grid-template-columns: 112px minmax(0, 1fr) 96px; column-gap: 20px; margin-top: 2px; }
+.bl__ticks { grid-column: 2; position: relative; height: 18px; }
+.bl__ticks i { position: absolute; top: 0; transform: translateX(-50%); font-style: normal; font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bl__ticks i:last-child { transform: translateX(-12px); }
+
+/* ---------- legends ---------- */
+.key--svg::before { content: none; }
+.key--svg svg { width: 14px; height: 14px; flex: none; overflow: visible; }
+.sw-left { fill: var(--ink-2); }
+.sw-used { fill: var(--mk-used); }
+.sw-light { fill: rgba(var(--ink-rgb), 0.18); stroke: var(--ink-2); stroke-width: 1.2; }
+.sw-fc { fill: var(--acc-forecast); }
+.sw-fcline { fill: none; stroke: var(--acc-forecast); stroke-width: 1.8; stroke-linejoin: round; }
+.sw-fcring { fill: none; stroke: var(--acc-forecast); stroke-width: 1.4; stroke-dasharray: 2.5 2; }
+.sw-over { fill: var(--red); }
+.sw-ghost { fill: none; stroke: var(--mk-ghost); stroke-width: 1.4; stroke-dasharray: 2.5 2; }
+.sw-capc { fill: rgba(var(--ink-rgb), 0.2); stroke: var(--ink-2); stroke-width: 1; }
+.sw-discc { fill: var(--ink-2); }
+.sw-sqleft { fill: none; stroke: var(--ink-2); stroke-width: 1.3; }
+
+/* ---------- motion: draw in once per view switch, then rest ---------- */
+.alt:not(.in) .arc { stroke-dashoffset: var(--len); }
+.alt.in .arc { transition: stroke-dashoffset 0.72s var(--ease) calc(var(--j, 0) * 90ms + var(--d, 0ms)); }
+.alt:not(.in) .a-ghost, .alt:not(.in) .ring-ghost, .alt:not(.in) .fade { opacity: 0; }
+.alt.in .a-ghost, .alt.in .ring-ghost, .alt.in .fade { transition: opacity 0.4s linear calc(var(--j, 0) * 90ms + 380ms); }
+.alt:not(.in) .needle { transform: rotate(180deg); }
+.alt.in .needle { transition: transform 0.82s var(--ease) calc(var(--j, 0) * 90ms + 160ms); }
+.alt:not(.in) .pop { transform: scale(0.35); opacity: 0; }
+.alt.in .pop { transition: transform 0.7s var(--ease) calc(var(--j, 0) * 90ms), opacity 0.3s linear calc(var(--j, 0) * 90ms); }
+.alt.in .pop--2 { transition-delay: calc(var(--j, 0) * 90ms + 180ms); }
+.alt:not(.in) .grow { transform: scaleX(0); }
+.alt.in .grow { transition: transform 0.7s var(--ease) calc(var(--j, 0) * 90ms); }
+.alt.in .bl__used { transition-delay: calc(var(--j, 0) * 90ms + 140ms); }
+.alt.in .bl__over { transition-delay: calc(var(--j, 0) * 90ms + 420ms); }
+.alt:not(.in) .sq { opacity: 0; }
+.alt.in .sq { transition: opacity 0.22s linear calc(var(--j, 0) * 90ms + var(--k, 0) * 16ms); }
+/* the only thing that moves at rest: a slow opacity pulse on ONE's over-use mark */
+.alt.in .pulse { animation: mk-pulse 1.6s ease-in-out 1.5s infinite alternate; }
+@keyframes mk-pulse { from { opacity: 1; } to { opacity: 0.75; } }   /* floor keeps red >= 3:1 (3.0 dark, 3.5 light) */
+
+/* reduced motion: the final state at once, no pulse */
+.alt.still *, .alt.still { transition: none !important; animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .alt *, .alt { transition: none !important; animation: none !important; }
+}
+@media (forced-colors: active) {
+  .a-left, .a-over, .sq-used, .b-left { forced-color-adjust: none; }
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 760px) {
+  .alt { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 8px; min-height: 0; padding-top: 6px; }
+  .alt--bullet { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .alt--dial { display: block; }
+  /* three across, the last two centred under them */
+  .alt--donut, .alt--gauge, .alt--bubble, .alt--grid, .dial-labels { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; }
+  .alt--donut .u, .alt--gauge .u, .alt--bubble .u, .alt--grid .u, .dial-labels .u { flex: 0 0 calc((100% - 16px) / 3); }
+  .dial-labels { gap: 12px 8px; }
+  .u__fig--grid svg { height: 128px; }
+  .u--bullet .jar__btn { grid-template-columns: 80px minmax(0, 1fr) 62px; column-gap: 12px; padding: 8px 0; }
+  .bl__axis { grid-template-columns: 80px minmax(0, 1fr) 62px; column-gap: 12px; }
+  .u--bullet .jar__left { font-size: 26px; }
+  .u--bullet .jar__name { letter-spacing: 0.08em; }
+  .mk-strip { padding-top: 12px; }
+  .mk-switch button { padding: 6px 9px; font-size: 12px; }
+}
