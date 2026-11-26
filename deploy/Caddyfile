@@ -1,0 +1,107 @@
+# Caddy: the only container with published ports. It serves the static pages (baked into the web image
+# from an allow-list, see web.Dockerfile) and proxies /api/* to the API container.
+#
+# DOMAIN comes from the environment (deploy/.env). A host name (e.g. ca.example.com) gets automatic HTTPS
+# from Let's Encrypt and :80 redirects to https. The local dev override sets DOMAIN=:80 (plain HTTP only).
+{
+	# HTTP/1.1 + HTTP/2 only (no HTTP/3 over UDP), so the server needs exactly 80/tcp and 443/tcp.
+	servers {
+		protocols h1 h2
+	}
+	# Caddy's own messages (certificates, errors) as JSON on stdout.
+	log {
+		output stdout
+		format json
+	}
+}
+
+{$DOMAIN} {
+	# Access log, JSON on stdout. Caddy redacts Cookie/Set-Cookie/Authorization by default; the one-time
+	# sign-in code and state of /api/auth/callback?code=...&state=... are removed as well.
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>uri query {
+					delete code
+					delete state
+				}
+			}
+		}
+	}
+
+	# Compresses text types only (html/css/js/json/svg); video and images are sent as they are, so Range
+	# requests on assets/landing.mp4 work.
+	encode zstd gzip
+
+	# Every response, pages and API.
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	# Request body caps (an oversized body never reaches the API).
+	# The three upload routes: 26 MB. The app itself refuses an .xlsx over 25 MB with a readable message;
+	# the extra MB is multipart overhead. Every other /api route: 1 MB.
+	# The two matchers are disjoint, so their order cannot matter.
+	@upload {
+		method POST
+		path /api/forecast/upload /api/stuffing/upload /api/suppliers/upload
+	}
+	@api_other {
+		path /api/*
+		not {
+			method POST
+			path /api/forecast/upload /api/stuffing/upload /api/suppliers/upload
+		}
+	}
+	request_body @upload {
+		max_size 26MB
+	}
+	request_body @api_other {
+		max_size 1MB
+	}
+
+	# API: strip /api and proxy (uvicorn runs with --root-path /api).
+	handle_path /api/* {
+		# Interactive API docs are never public. The app hides them itself in production; this also covers
+		# a wrong APP_ENV (paths here are already stripped of /api).
+		@docs path /docs /docs/* /redoc /redoc/* /openapi.json /docs/oauth2-redirect
+		respond @docs 404
+
+		# The API sets nosniff, X-Frame-Options, Referrer-Policy: no-referrer and frame-ancestors itself.
+		# Its responses are JSON, .xlsx downloads and redirects, which never load anything, so their CSP is
+		# the strictest one (replaces the API's, no duplicate header). No caching of signed-in data.
+		header {
+			defer
+			Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+			?Cache-Control "no-store"
+		}
+
+		reverse_proxy api:8000 {
+			# ride out an API restart (update, crash) for a few seconds instead of answering 502 at once
+			lb_try_duration 10s
+		}
+	}
+
+	# Everything else: the static pages. "/" serves index.html; an unknown path is 404 (no SPA fallback).
+	handle {
+		root * /srv
+		header {
+			Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; media-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+			X-Content-Type-Options "nosniff"
+			X-Frame-Options "DENY"
+			Referrer-Policy "same-origin"
+		}
+		# Pages, scripts and styles: always revalidated (ETag/Last-Modified), so an update shows at once.
+		@revalidate path / *.html *.css *.js
+		header @revalidate Cache-Control "no-cache"
+		# Video and images: cached for 30 days. File names are not versioned: give a changed asset a new name.
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=2592000"
+
+		try_files {path}
+		file_server
+	}
+}

@@ -1,0 +1,16 @@
+# Build context of backend/Dockerfile: only app/, migrations/, seed/, alembic.ini, requirements.txt are used.
+.venv/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+# local leftovers that must never enter an image (the old local data folder, database files, env files)
+data/
+*.db
+*.db-*
+tests/
+requirements-dev.txt
+README.md
+Dockerfile
+.dockerignore
+.env
+.env.*

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repeated information: before and after</title>
+<link rel="stylesheet" href="../css/tokens.css">
+<link rel="stylesheet" href="../css/base.css">
+<script>
+  // MOCKUP ONLY, not part of the app: no sign-in guard, no shell.js / data.js / cursor.js, no backend,
+  // nothing saved into the app.
+  //   ?page=overview|weekly|avu   ?view=before|after|changes   ?theme=light|dark   ?item=1..14 (changes)
+  // Theme without ?theme: this mockup's own saved choice ('ca.mock.theme'), else the app's 'ca.theme'
+  // (read only), else the system setting. Each page gets only its own real stylesheets from ../css/,
+  // so the static copy renders exactly as the app does; this mockup's chrome comes last.
+  (function () {
+    var q = new URLSearchParams(location.search), d = document.documentElement;
+    var page = q.get('page'), view = q.get('view'), t = q.get('theme');
+    if (!/^(overview|weekly|avu)$/.test(page)) page = 'overview';
+    if (!/^(before|after|changes)$/.test(view)) view = 'before';
+    if (t !== 'light' && t !== 'dark') { try { t = localStorage.getItem('ca.mock.theme') || localStorage.getItem('ca.theme'); } catch (e) {} }
+    if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    d.setAttribute('data-theme', t);
+    d.setAttribute('data-section', { overview: 'overview', weekly: 'entry', avu: 'reports' }[page]);
+    d.setAttribute('data-mk-page', page);
+    d.setAttribute('data-mk-view', view);
+    var css = { overview: ['carrierbars', 'dashboard'], weekly: ['pages'], avu: ['pages', 'reports'] }[page];
+    var h = '';
+    css.forEach(function (c) { h += '<link rel="stylesheet" href="../css/' + c + '.css">'; });
+    document.write(h + '<link rel="stylesheet" href="cleanup-before-after.css">');
+  })();
+</script>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Newsreader:opsz,wght@6..72,400..700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body class="mk-page">
+
+<header class="mk-strip">
+  <div class="mk-strip__id">
+    <h1 class="mk-strip__t">Repeated information</h1>
+    <p class="mk-strip__s">Mockup: the app is unchanged. Week 45 figures.</p>
+  </div>
+  <div class="mk-seg mk-seg--page" role="group" aria-label="Page">
+    <button type="button" data-page="overview" aria-pressed="false">Overview</button>
+    <button type="button" data-page="weekly" aria-pressed="false"><span class="mk-long">Weekly allocation</span><span class="mk-short">Weekly</span></button>
+    <button type="button" data-page="avu" aria-pressed="false"><span class="mk-long">Allocation vs Utilization</span><span class="mk-short">Alloc vs Util</span></button>
+  </div>
+  <div class="mk-seg mk-seg--view" role="group" aria-label="Version">
+    <button type="button" data-view="before" aria-pressed="false">Before</button>
+    <button type="button" data-view="after" aria-pressed="false">After</button>
+    <button type="button" data-view="changes" aria-pressed="false">Changes</button>
+  </div>
+  <button class="mk-theme" id="mk-theme" type="button" aria-label="Light theme" aria-pressed="false" title="Switch theme">
+    <svg class="mk-theme__sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="2.9"/><path d="M8 1.6v1.5M8 12.9v1.5M1.6 8h1.5M12.9 8h1.5M3.5 3.5l1.05 1.05M11.45 11.45l1.05 1.05M3.5 12.5l1.05-1.05M11.45 4.55l1.05-1.05"/></svg>
+    <svg class="mk-theme__moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.2 10.1A5.6 5.6 0 0 1 5.9 2.8a5.6 5.6 0 1 0 7.3 7.3z"/></svg>
+  </button>
+</header>
+
+<div class="mk-body" id="mk-body">
+  <!-- the static copy of the page: header, main, upload section and footer go in here (cleanup-screen.js) -->
+  <div class="mk-stage" id="mk-stage"></div>
+
+  <aside class="mk-list" id="mk-list" aria-labelledby="mk-list-t">
+    <details class="mk-list__box" id="mk-list-box" open>
+      <summary class="mk-list__head">
+        <h2 class="mk-list__t" id="mk-list-t">The 14 items</h2>
+        <p class="mk-list__s">Each is outlined on the page. Select one to find it.</p>
+      </summary>
+      <div id="mk-groups"></div>
+    </details>
+  </aside>
+</div>
+
+<script src="../js/numbers.js"></script>
+<script src="../js/carrierbars.js"></script>
+<script src="cleanup-items.js"></script>
+<script src="cleanup-data.js"></script>
+<script src="cleanup-screen.js"></script>
+<script src="cleanup-before-after.js"></script>
+</body>
+</html>

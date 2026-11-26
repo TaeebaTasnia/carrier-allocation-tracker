@@ -4,13 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Carrier Allocation &amp; Utilization Tracker</title>
-<script>
-  // The landing and sign-in stay dark (video). Only the colour the dive fades to follows the theme,
-  // so the dashboard's ground is already there when it loads (same rule as the signed-in pages).
-  (function () { var t = null; try { t = localStorage.getItem('ca.theme'); } catch (e) {}
-    if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', t); })();
-</script>
+<!-- before the first paint: the landing and sign-in stay dark (video); only the colour the dive fades to
+     follows the theme, so the dashboard's ground is already there when it loads -->
+<script src="js/boot.js"></script>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -56,7 +52,7 @@
     line-height: 1.02; letter-spacing: -0.01em; color: var(--ink);
     text-shadow: 0 2px 32px rgba(0,0,0,.35);
   }
-  /* invisible hit area in the bottom-right corner: opens the login */
+  /* invisible hit area in the bottom-right corner: opens the sign-in card */
   .hotspot {
     position: fixed; right: 0; bottom: 0; z-index: 2;
     width: clamp(110px, 16vw, 220px); height: clamp(110px, 16vw, 220px);
@@ -74,7 +70,7 @@
   .hotspot:hover span, .hotspot:focus-visible span { color: #fff; border-color: rgba(255,255,255,.9); }
   .hotspot:focus-visible { outline: 2px solid rgba(247,244,238,.7); outline-offset: -10px; border-radius: 24px; }
 
-  /* ---------- login overlay ---------- */
+  /* ---------- sign-in overlay ---------- */
   .overlay {
     position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 16px;
     background: rgba(3, 7, 12, .38);
@@ -83,7 +79,7 @@
   }
   .overlay.open { opacity: 1; visibility: visible; transition: opacity .45s var(--ease); }
   .overlay { grid-template-columns: minmax(0, 1fr); justify-items: center; }
-  /* the landing title steps back while the login is up */
+  /* the landing title steps back while the card is up */
   .stage { transition: opacity .45s var(--ease); }
   body.login-open .stage { opacity: 0; }
 
@@ -121,38 +117,8 @@
   h2 { text-align: center; font-size: 1.7rem; font-weight: 600; letter-spacing: -.015em; }
   .sub { text-align: center; margin-top: 8px; font-size: .95rem; color: var(--ink-dim); line-height: 1.4; }
 
-  form { margin-top: 26px; }
-  label { display: block; font-size: .88rem; font-weight: 500; color: rgba(247,244,238,.86); margin: 0 0 8px 2px; }
-  .field { position: relative; margin-bottom: 18px; }
-  .field > svg.lead { position: absolute; left: 16px; top: 50%; width: 18px; height: 18px; transform: translateY(-50%); color: rgba(247,244,238,.6); pointer-events: none; }
-  input[type="text"], input[type="password"] {
-    width: 100%; height: 52px; padding: 0 48px 0 46px; border-radius: 15px;
-    font: inherit; font-size: 1rem; color: var(--ink); caret-color: var(--ink);
-    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.13);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), inset 0 -8px 18px rgba(0,0,0,.12);
-    transition: background .25s, border-color .25s, box-shadow .25s;
-  }
-  input:hover { background: rgba(255,255,255,.09); }
-  input:focus { outline: none; background: rgba(143,176,207,.14); border-color: rgba(190,214,236,.55); box-shadow: 0 0 0 4px rgba(143,176,207,.18), inset 0 1px 0 rgba(255,255,255,.12); }
-  input:-webkit-autofill { -webkit-text-fill-color: var(--ink); transition: background-color 9999s; }
-  .eye { position: absolute; right: 8px; top: 50%; width: 38px; height: 38px; transform: translateY(-50%); display: grid; place-items: center;
-         background: none; border: 0; border-radius: 10px; color: rgba(247,244,238,.62); cursor: pointer; }
-  .eye:hover { color: var(--ink); background: rgba(255,255,255,.08); }
-  .eye svg { width: 20px; height: 20px; }
-  .eye:focus-visible, .row button:focus-visible, .btn:focus-visible, .switch input:focus-visible + .track { outline: 2px solid rgba(247,244,238,.85); outline-offset: 2px; }
-
-  .row { display: flex; align-items: center; justify-content: space-between; margin: -2px 0 20px; font-size: .92rem; }
-  .switch { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; color: rgba(247,244,238,.86); margin: 0; font-weight: 400; font-size: .92rem; }
-  .switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
-  .track { width: 44px; height: 26px; border-radius: 99px; position: relative; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.14); transition: background .25s; }
-  .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--ink); box-shadow: 0 2px 6px rgba(0,0,0,.35); transition: transform .3s var(--ease); }
-  .switch input:checked + .track { background: var(--steel); border-color: rgba(255,255,255,.3); }
-  .switch input:checked + .track::after { transform: translateX(18px); }
-  .row .link { background: none; border: 0; font: inherit; font-weight: 500; color: rgba(247,244,238,.86); cursor: pointer; border-radius: 6px; padding: 2px 0; }
-  .row .link:hover { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
-
   .btn {
-    width: 100%; height: 54px; border: 0; border-radius: 16px; cursor: pointer;
+    display: block; width: 100%; height: 54px; margin-top: 28px; border: 0; border-radius: 16px; cursor: pointer;
     font: inherit; font-size: 1.02rem; font-weight: 600; color: var(--navy);
     background: linear-gradient(180deg, #fbf9f4, #d9e3ee);
     box-shadow: inset 0 1px 0 #fff, inset 0 -2px 6px rgba(11,20,31,.12), 0 10px 28px rgba(0,0,0,.32);
@@ -161,12 +127,10 @@
   .btn:hover { filter: brightness(1.04); box-shadow: inset 0 1px 0 #fff, inset 0 -2px 6px rgba(11,20,31,.12), 0 14px 34px rgba(0,0,0,.38); transform: translateY(-1px); }
   .btn:active { transform: translateY(1px) scale(.992); }
   .btn[disabled] { cursor: default; filter: none; transform: none; }
-  .btn.done { background: linear-gradient(180deg, #e6f1e9, #c4dccb); }
+  .btn:focus-visible { outline: 2px solid rgba(247,244,238,.85); outline-offset: 2px; }
 
   .note { min-height: 20px; margin-top: 14px; text-align: center; font-size: .88rem; color: var(--ink-dim); }
   .note.err { color: #ffb4a3; }
-  .shake { animation: shake .4s; }
-  @keyframes shake { 20%{transform:translateX(-6px)} 40%{transform:translateX(5px)} 60%{transform:translateX(-3px)} 80%{transform:translateX(2px)} }
 
   @media (max-width: 640px) {
     .grade { background: linear-gradient(0deg, rgba(3,6,10,.66) 0%, rgba(3,6,10,.2) 55%, rgba(3,6,10,0) 80%); }
@@ -179,8 +143,7 @@
     .card { background: rgba(11, 20, 31, .9); }
   }
   @media (prefers-reduced-motion: reduce) {
-    .overlay, .card, .btn, .track::after { transition-duration: .01s !important; }
-    .shake { animation: none; }
+    .overlay, .card, .btn { transition-duration: .01s !important; }
   }
 </style>
 </head>
@@ -193,190 +156,19 @@
   <button class="hotspot" id="open-login" type="button" aria-haspopup="dialog"><span>Click here to login</span></button>
 
   <div class="overlay" id="overlay" aria-hidden="true">
-    <section class="card" id="card" role="dialog" aria-modal="true" aria-labelledby="login-title">
+    <section class="card" id="card" role="dialog" aria-modal="true" aria-labelledby="login-title" aria-describedby="note">
       <img class="logo" src="assets/mgh-logo-white.png" alt="MGH" width="844" height="317">
       <div class="rule"></div>
       <h2 id="login-title">Sign in</h2>
       <p class="sub">Carrier Allocation &amp; Utilization Tracker</p>
-
-      <form id="login-form" novalidate autocomplete="on">
-        <label for="username">Username</label>
-        <div class="field">
-          <svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
-          <input id="username" name="username" type="text" value="demo_user" autocomplete="username" spellcheck="false" autocapitalize="none">
-        </div>
-
-        <label for="password">Password</label>
-        <div class="field">
-          <svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
-          <input id="password" name="password" type="password" value="demo1234" autocomplete="current-password">
-          <button class="eye" id="eye" type="button" aria-label="Show password" aria-pressed="false">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path id="slash" d="M4 4l16 16" style="display:none"/></svg>
-          </button>
-        </div>
-
-        <div class="row">
-          <label class="switch"><input type="checkbox" id="remember" checked><span class="track"></span>Remember me</label>
-          <button class="link" id="forgot" type="button">Forgot password?</button>
-        </div>
-
-        <button class="btn" id="submit" type="submit">Log In</button>
-        <p class="note" id="note" role="status" aria-live="polite"></p>
-      </form>
+      <button class="btn" id="signin" type="button">Sign in</button>
+      <p class="note" id="note" role="status" aria-live="polite"></p>
     </section>
   </div>
 
   <div class="black" id="black"></div>
 
-  <script>
-  (function () {
-    var $ = function (id) { return document.getElementById(id); };
-    var overlay = $('overlay'), card = $('card'), opener = $('open-login');
-    var user = $('username'), pass = $('password'), note = $('note'), btn = $('submit');
-    var video = document.querySelector('.bg');
-    var lastFocus = null;
-
-    // Reduced motion: hold the film on its first frame.
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { video.removeAttribute('autoplay'); video.pause(); }
-
-    /* ---- demo auth hook: replace this one function with the real backend login later ---- */
-    window.CA = window.CA || {};
-    window.CA.auth = {
-      DEMO: { username: 'demo_user', password: 'demo1234' },
-      signIn: function (username, password, remember) {
-        var ok = username === this.DEMO.username && password === this.DEMO.password;
-        if (ok) {
-          try { (remember ? localStorage : sessionStorage).setItem('ca.signedIn', '1'); } catch (e) {}
-          document.dispatchEvent(new CustomEvent('ca:signed-in'));
-        }
-        return Promise.resolve({ ok: ok });
-      }
-    };
-
-    /* ---- cinematic push-in toward the container stack, then on to the next page ---- */
-    var NEXT_PAGE_URL = 'dashboard.html';   // the one line to change when the real page exists
-    var DURATION = 1100;                     // ms: a fast aerial dive onto the cargo
-    var SRC_W = 1920, SRC_H = 1080;          // source video size
-    var FOCUS = { x: 0.40, y: 0.39 };        // centre of the container stack, as a fraction of the video frame
-    var END_ZOOM = 3.0;                      // the last part of the dive is hidden by the fade, so the 1080p softness never shows
-    var PITCH = 9;                           // degrees the camera noses down by the end
-    var black = $('black');
-    var raf = 0, startedAt = 0, running = false;
-
-    var clamp = function (v, a, b) { return Math.min(b, Math.max(a, v)); };
-    var easeInOut = function (p) { return p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2; }; // slow start, strong middle, soft landing
-
-    // where the focal point sits on screen (object-fit: cover, shifted left on tall screens so cargo stays in view)
-    function geometry() {
-      var vw = window.innerWidth, vh = window.innerHeight;
-      var posX = vw / vh < 1 ? 0.3 : 0.5;
-      video.style.objectPosition = (posX * 100) + '% 50%';
-      var c = Math.max(vw / SRC_W, vh / SRC_H), w = SRC_W * c, h = SRC_H * c;
-      var ox = (vw - w) * posX, oy = (vh - h) * 0.5;
-      return { vw: vw, vh: vh,
-               fx: clamp(ox + FOCUS.x * w, vw * .12, vw * .88),
-               fy: clamp(oy + FOCUS.y * h, vh * .12, vh * .88) };
-    }
-    var geo = geometry();
-    window.addEventListener('resize', function () { if (!running) { geo = geometry(); } });
-
-    function render(p) {                      // p: 0..1 along the shot
-      var e = Math.pow(p, 1.8);                                   // a dive: it keeps accelerating until the cut
-      var s = Math.exp(Math.log(END_ZOOM) * e);                   // exponential zoom reads as constant forward speed
-      var m = 1 - Math.pow(1 - clamp(p / .7, 0, 1), 2.4);         // the cargo swings to screen centre fast, then the camera drops onto it
-      var tx = geo.fx + (geo.vw / 2 - geo.fx) * m, ty = geo.fy + (geo.vh / 2 - geo.fy) * m;
-      var x = clamp(tx - s * geo.fx, geo.vw * (1 - s), 0), y = clamp(ty - s * geo.fy, geo.vh * (1 - s), 0);
-      var pitch = PITCH * Math.pow(p, 2.2);                       // nose down, about the cargo, late in the move
-      // transform + opacity only: no filters, no extra full-screen layers, nothing to repaint
-      video.style.transform = 'translate3d(' + x.toFixed(2) + 'px,' + y.toFixed(2) + 'px,0) scale(' + s.toFixed(4) + ') translate(' + geo.fx.toFixed(1) + 'px,' + geo.fy.toFixed(1) + 'px) rotateX(' + pitch.toFixed(2) + 'deg) translate(' + (-geo.fx).toFixed(1) + 'px,' + (-geo.fy).toFixed(1) + 'px)';
-      black.style.opacity = clamp((p - .68) / .32, 0, 1).toFixed(3);   // fade to the next page's ground
-    }
-    function finish() { running = false; cancelAnimationFrame(raf); render(1); location.href = NEXT_PAGE_URL; }
-    function tick(now) {
-      var p = clamp((now - startedAt) / DURATION, 0, 1);
-      render(p);
-      if (p < 1) { raf = requestAnimationFrame(tick); } else { finish(); }
-    }
-    function startCinema() {
-      if (running) return; running = true;
-      geo = geometry();
-      video.pause();                                   // freeze the film: nothing decodes during the dive (a big saving on integrated graphics)
-      document.body.classList.add('cinema');          // card lifts away, dimming and title clear: the original film is back
-      overlay.classList.remove('open'); overlay.setAttribute('aria-hidden', 'true');
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {   // no camera move: short fade only
-        black.style.transition = 'opacity .35s'; black.style.opacity = 1; setTimeout(finish, 380); return;
-      }
-      setTimeout(function () {                        // let the glass clear for a beat, then the camera starts moving
-        startedAt = performance.now(); raf = requestAnimationFrame(tick);
-      }, 60);
-      document.addEventListener('keydown', function skip(e) { if (e.key === 'Escape') { document.removeEventListener('keydown', skip); finish(); } });
-    }
-    window.CA.cinema = { start: startCinema, seek: function (p) { document.body.classList.add('cinema'); overlay.classList.remove('open'); geo = geometry(); render(clamp(p, 0, 1)); } };
-    window.addEventListener('pageshow', function (e) { if (e.persisted) location.reload(); });  // back button: never show a half-zoomed film
-
-    function open() {
-      lastFocus = document.activeElement;
-      overlay.setAttribute('aria-hidden', 'false');
-      overlay.classList.add('open');
-      document.body.classList.add('login-open');
-      setTimeout(function () { pass.focus({ preventScroll: true }); }, 350);
-    }
-    function close() {
-      overlay.classList.remove('open');
-      document.body.classList.remove('login-open');
-      overlay.setAttribute('aria-hidden', 'true');
-      if (lastFocus) lastFocus.focus({ preventScroll: true });
-    }
-    opener.addEventListener('click', open);
-    overlay.addEventListener('mousedown', function (e) { if (e.target === overlay) close(); });
-    document.addEventListener('keydown', function (e) {
-      if (!overlay.classList.contains('open')) return;
-      if (e.key === 'Escape') { close(); return; }
-      if (e.key === 'Tab') { // keep focus inside the dialog
-        var f = card.querySelectorAll('input, button:not([disabled])');
-        var first = f[0], last = f[f.length - 1];
-        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-      }
-    });
-
-    // pointer-following sheen on the glass
-    card.addEventListener('pointermove', function (e) {
-      var r = card.getBoundingClientRect();
-      card.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100).toFixed(1) + '%');
-      card.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100).toFixed(1) + '%');
-    });
-
-    $('eye').addEventListener('click', function () {
-      var show = pass.type === 'password';
-      pass.type = show ? 'text' : 'password';
-      this.setAttribute('aria-pressed', String(show));
-      this.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
-      $('slash').style.display = show ? '' : 'none';
-    });
-
-    $('forgot').addEventListener('click', function () {
-      note.className = 'note'; note.textContent = 'Password reset is not part of the demo.';
-    });
-
-    $('login-form').addEventListener('submit', function (e) {
-      e.preventDefault();
-      note.className = 'note'; note.textContent = '';
-      btn.disabled = true; btn.textContent = 'Signing in…';
-      CA.auth.signIn(user.value.trim(), pass.value, $('remember').checked).then(function (res) {
-        if (res.ok) {
-          btn.textContent = 'Signed in'; btn.classList.add('done');
-          note.textContent = 'Demo login accepted.';
-          setTimeout(startCinema, 150);
-        } else {
-          btn.disabled = false; btn.textContent = 'Log In';
-          note.className = 'note err'; note.textContent = 'Wrong username or password.';
-          card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
-          pass.focus(); pass.select();
-        }
-      });
-    });
-  })();
-  </script>
+  <script src="js/data.js"></script>
+  <script src="js/index.js"></script>
 </body>
 </html>

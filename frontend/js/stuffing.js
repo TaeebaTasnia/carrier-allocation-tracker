@@ -465,7 +465,6 @@
       var dates = weekDays.map(function (d) { return d.date; });
       var today = W.todayIso();
       var pickIso = dates.indexOf(want) >= 0 ? want : dates.indexOf(today) >= 0 ? today : (weekDays.filter(function (d) { return d.rows > 0; })[0] || weekDays[0]).date;
-      $('#foot-source').textContent = 'Figures in TEU unless marked CBM. Data from the backend at ' + D.API_BASE + '.';
       // rows still on screen with unsaved edits (e.g. a retry): ask before replacing them, never drop them silently
       if (!agreed && date && !loadingDay && !saving && dirty() && !SH.okToLeave()) {
         paintStrip();

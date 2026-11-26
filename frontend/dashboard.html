@@ -4,24 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Overview · Carrier Allocation &amp; Utilization</title>
-<script>
-  // Only reachable after signing in (flag set by the demo login on index.html). Runs before paint.
-  try {
-    if (!(localStorage.getItem('ca.signedIn') || sessionStorage.getItem('ca.signedIn'))) location.replace('index.html');
-  } catch (e) {}
-  document.documentElement.classList.add('js');
-  // theme before the first paint (no dark flash): the saved choice, else the system setting.
-  // The toggle is in the top bar (js/shell.js); the colours are in css/tokens.css.
-  (function () { var t = null; try { t = localStorage.getItem('ca.theme'); } catch (e) {}
-    if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', t); })();
-</script>
+<script src="js/boot.js"></script>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Fraunces:opsz,wght,SOFT,WONK@9..144,600..900,0,0&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Newsreader:opsz,wght@6..72,400..700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/carrierbars.css">
 <link rel="stylesheet" href="css/dashboard.css">
 </head>
 <body>
@@ -66,19 +56,22 @@
 
   <section class="stage" aria-labelledby="stage-title" data-focus="left">
     <h2 class="sr" id="stage-title">Capacity left per carrier</h2>
-    <div class="stage__row" id="jars">
-      <!-- one per carrier, filled by dashboard.js -->
+    <!-- the carrier bar chart: js/carrierbars.js (shared with Allocation vs Utilization), rows built by dashboard.js -->
+    <div class="cb" id="bars" data-ball="ui" data-first>
+      <div class="cb__head" aria-hidden="true"><span class="cb__axis lt-axis" id="axis"></span></div>
+      <ul class="cb__rows" id="bars-rows"></ul>
     </div>
     <div class="readout" id="readout" aria-live="polite" hidden>
       <p class="readout__title" id="readout-title"></p>
       <dl class="tip__rows" id="readout-rows"></dl>
     </div>
     <p class="stage__key rise" data-ball="text">
-      <span class="key key--glass" data-ink>Glass: confirmed space</span>
-      <span class="key key--water" data-ink>Water: TEU left (confirmed − utilized)</span>
-      <span class="key key--tick" data-ink>Amber tick: forecast allocation</span>
-      <span class="key key--rest" data-ink hidden>Resting water: nothing on file yet, not capacity</span>
-      <span class="key key--ghost" data-ink hidden>Dashed glass, faint hatched water: forecast only, no space confirmed</span>
+      <span class="key key--box"><i class="k k--box" aria-hidden="true"></i><span data-ink>Confirmed space</span></span>
+      <span class="key key--fill"><i class="k k--fill" aria-hidden="true"></i><span data-ink>Utilized</span></span>
+      <span class="key key--over"><i class="k k--over" aria-hidden="true"></i><span data-ink>Over confirmed</span></span>
+      <span class="key key--fc"><i class="k k--fc" aria-hidden="true"></i><span data-ink>Forecast</span></span>
+      <span class="key key--none" hidden><i class="k k--none" aria-hidden="true"></i><span data-ink>Nothing confirmed: forecast only</span></span>
+      <span class="key key--left"><span data-ink>TEU left = confirmed − utilized</span></span>
     </p>
     <div class="stage__msg" id="stage-msg" hidden>
       <p class="stage__msg-title" id="stage-msg-title" data-ink></p>
@@ -96,29 +89,26 @@
       </div>
       <dl class="ledger">
         <div><dt data-ink>Forecast for the week</dt><dd data-ink id="l-forecast">—</dd></div>
-        <div><dt data-ink>Arrived so far <span class="sr">(from the stuffing report)</span></dt><dd data-ink id="l-actual">—</dd></div>
+        <div><dt data-ink>Arrived so far <span class="sr">(from daily stuffing)</span></dt><dd data-ink id="l-actual">—</dd></div>
         <div class="ledger__sum"><dt data-ink>To be arrived</dt><dd data-ink id="l-arrive">—</dd></div>
       </dl>
-      <p class="note__fine" id="arrive-fine" data-ink hidden></p>
-    </section>
-
-    <section class="note note--balance rise" id="note-balance" aria-labelledby="balance-title">
-      <h2 class="note__title" id="balance-title" data-ink>How the balance is worked out</h2>
-      <dl class="ledger">
-        <div><dt data-ink>Left in hand</dt><dd data-ink id="b-left">—</dd></div>
-        <div><dt data-ink><span aria-hidden="true">−&ensp;</span>To be arrived</dt><dd data-ink id="b-arrive">—</dd></div>
-        <div class="ledger__sum"><dt data-ink id="b-word">Balance</dt><dd data-ink id="b-total">—</dd></div>
-      </dl>
-      <p class="note__fine" data-ink>Left in hand is confirmed space minus what is already utilized, across all five carriers. Within half a TEU either way the week reads as balanced.</p>
-      <p class="note__fine note__round" data-ink>TEU figures are rounded up to whole TEU. Totals come from the exact values, so rows may not add up exactly.</p>
+      <p class="note__key" data-ink><span class="is-deficit">Deficit</span> or <span class="is-surplus">surplus</span> = left in hand minus to be arrived. Within half a TEU it is balanced.</p>
+      <details class="how" id="how">
+        <summary class="how__q" data-ball="ui"><span data-ink>How is this worked out?</span></summary>
+        <div class="how__a">
+          <p data-ink><b>Arrived so far</b> is the daily stuffing CBM in TEU. <b>Left in hand</b> is confirmed space minus what is already utilized.</p>
+          <p class="note__round" data-ink>Figures are rounded up to whole TEU.</p>
+        </div>
+      </details>
     </section>
   </aside>
 </main>
 
 <section class="up" id="uploads" aria-labelledby="up-title" data-ball="ui">
   <div class="up__head">
-    <h2 class="up__title" id="up-title" data-ink>Uploads</h2>
-    <p class="up__lede" data-ink>The two workbooks every figure above is built from. Data entry and reports read from what is uploaded here. The supplier list is fixed; add a new supplier in <a class="link" href="settings.html">Settings</a>.</p>
+    <h2 class="up__title" id="up-title" data-ink>Upload</h2>
+    <p class="up__lede" data-ink>The forecast workbook every figure above starts from. Upload it again whenever the forecast changes.</p>
+    <p class="up__aside" data-ink>Daily stuffing is typed in <a class="link" href="stuffing.html" data-nav="stuffing">Data entry › Daily stuffing</a>. Suppliers are added in <a class="link" href="settings.html">Settings</a>.</p>
   </div>
 
   <div class="up__grid">
@@ -134,52 +124,19 @@
       <p class="drop__note" id="note-forecast" data-ink>Re-uploading replaces the forecast for every week in the file. Confirmed space is kept.</p>
       <div class="drop__status" role="status" aria-live="polite" data-ball="none"></div>
     </form>
-
-    <form class="drop drop--stuffing" id="up-stuffing" data-kind="stuffing" novalidate>
-      <h3 class="drop__title" data-ink>Daily stuffing</h3>
-      <p class="drop__what" data-ink>The stuffing report (.xlsx): it feeds both Utilized (loaded containers) and Arrived (its CBM column if it has one, otherwise TEU x CBM per TEU). Give a date only if the file has no date column.</p>
-      <div class="drop__date">
-        <label for="stuffing-date" data-ink>Report date <span>(optional)</span></label>
-        <input type="date" id="stuffing-date" name="report_date">
-      </div>
-      <div class="drop__zone">
-        <svg class="drop__icon" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="10" width="24" height="14" rx="1"/><path d="M9 13v8M13 13v8M17 13v8M21 13v8M25 13v8M4 27.5h24"/><path d="M16 3v5M13.5 5.5 16 8l2.5-2.5"/></svg>
-        <input class="drop__input" type="file" id="file-stuffing" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-describedby="note-stuffing">
-        <label class="btn btn--accent drop__pick" for="file-stuffing"><svg class="btn__ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 11V3M4.8 6.2 8 3l3.2 3.2"/><path d="M3 10.5v2a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-2"/></svg><span>Choose stuffing file</span></label>
-        <span class="drop__or" data-ink>or drop the .xlsx here</span>
-      </div>
-      <p class="drop__note" id="note-stuffing" data-ink>Re-uploading replaces the stuffing for every date in the file. A day can be adjusted under Date-wise.</p>
-      <div class="drop__status" role="status" aria-live="polite" data-ball="none"></div>
-    </form>
   </div>
 </section>
 
 <footer class="foot" data-ball="text">
-  <p data-ink id="foot-source">Figures in TEU. 1 TEU is 33 CBM after the 30% uplift.</p>
+  <p data-ink id="foot-source">Figures in TEU, rounded up to whole TEU. 1 TEU is 33 CBM after the 30% uplift.</p>
   <p data-ink>MGH · Carrier Allocation &amp; Utilization</p>
 </footer>
 
-
-<template id="jar-tpl">
-  <div class="jar rise" data-ball="jar">
-    <div class="jar__glass"><canvas aria-hidden="true"></canvas></div>
-    <button class="jar__btn" type="button">
-      <span class="jar__name" data-ink></span>
-      <span class="jar__left" data-ink><span class="jar__v"></span><span class="jar__unit"></span></span>
-      <span class="jar__pct" data-ink></span>
-    </button>
-    <div class="tip" role="tooltip">
-      <p class="tip__title"></p>
-      <dl class="tip__rows"></dl>
-    </div>
-  </div>
-</template>
-
 <script src="js/numbers.js"></script>
 <script src="js/data.js"></script>
-<script src="js/jars.js"></script>
 <script src="js/cursor.js"></script>
 <script src="js/page.js"></script>
+<script src="js/carrierbars.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/uploads.js"></script>
 </body>

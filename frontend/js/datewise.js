@@ -288,7 +288,6 @@
       $('#body').hidden = false;
       P.pop($('#sub'), [range + '. Stuffed TEU by carrier, forecast by Rfi date, and what arrived, from the stuffing report. 1 TEU is ' + fmt(cfg.cbm_per_teu) + ' CBM.'], { delay: 220, step: 12, dur: 520 });
       paint();
-      $('#foot-source').textContent = 'Figures in TEU unless marked CBM. Data from the backend at ' + D.API_BASE + '.';
     }, function (err) {
       if (id !== reqId) return;
       setState('error');

@@ -1,23 +1,29 @@
 from __future__ import annotations
 
 import datetime as dt
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, FiniteFloat
 from sqlalchemy.orm import Session
 
 from ..config_service import get_config
-from ..db import get_db
+from ..db import get_db, lock
 from ..models import DailyActual
 from ..services import calc, data
-from ..utils import CARRIERS, week_dates
+from ..utils import CARRIERS, MAX_ABS_NUM, week_dates
+from ..validation import NonNegFloat, check_day, check_year
 
 router = APIRouter(tags=["weekly"])
+
+# Negative values pass this type on purpose: the routes answer them with their own message.
+_UpperBounded = Annotated[FiniteFloat, Field(ge=-MAX_ABS_NUM, le=MAX_ABS_NUM)]
 
 
 def _check_week(year: int, week: int):
     if not 1 <= week <= 53:
         raise HTTPException(422, "week must be between 1 and 53")
+    check_year(year)
     try:
         week_dates(year, week)
     except ValueError:
@@ -34,8 +40,8 @@ def _daily_json(d: dict) -> dict:
 
 
 class WeeklyIn(BaseModel):
-    confirmed: dict[str, float] | None = Field(default=None, description="carrier -> confirmed TEUs")
-    fml_forecast: float | None = None  # explicit null clears the override
+    confirmed: dict[str, _UpperBounded] | None = Field(default=None, description="carrier -> confirmed TEUs")
+    fml_forecast: NonNegFloat | None = None  # explicit null clears the override
 
 
 @router.get("/weekly/{year}/{week}")
@@ -58,7 +64,8 @@ def put_weekly(year: int, week: int, body: WeeklyIn, db: Session = Depends(get_d
 
 
 class DailyIn(BaseModel):
-    actual_cbm: float | None = None  # typed adjustment of that day's actual CBM; 0 is valid; null clears it (the computed value returns)
+    # typed adjustment of that day's actual CBM; 0 is valid; null clears it (the computed value returns)
+    actual_cbm: _UpperBounded | None = None
 
 
 @router.get("/daily")
@@ -70,6 +77,7 @@ def list_daily(year: int, week: int, db: Session = Depends(get_db)):
 
 @router.get("/daily/{day}")
 def get_daily(day: dt.date, db: Session = Depends(get_db)):
+    check_day(day)
     y, w = calc.week_of(day)
     res = data.compute_week(db, y, w)
     row = next((d for d in res["daily"] if d["date"] == day), None)
@@ -84,8 +92,10 @@ def get_daily(day: dt.date, db: Session = Depends(get_db)):
 
 @router.put("/daily/{day}")
 def put_daily(day: dt.date, body: DailyIn, db: Session = Depends(get_db)):
+    check_day(day)
     if body.actual_cbm is not None and body.actual_cbm < 0:
         raise HTTPException(422, "actual_cbm must be >= 0")
+    lock(db, "daily")
     row = db.get(DailyActual, day)
     if row is None:
         row = DailyActual(date=day)

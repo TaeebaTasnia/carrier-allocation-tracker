@@ -1,0 +1,183 @@
+/* Repeated information, before and after: MOCKUP ONLY, not loaded by the app.
+   Loaded by cleanup-before-after.html (the chrome: strip, item list, preview frame) and by
+   cleanup-screen.html (the static page copies: the "after" edits that need CSS and the
+   "changes" outlines). Everything here is prefixed mk-; the app's own styles come from ../css/. */
+
+/* the annotation colour: a proof-mark violet, kept apart from the app's own hues (forecast amber,
+   deficit red, surplus sea, the carrier colours). Chip text: dark 9.6:1, light 7.4:1. */
+:root {
+  --mk: #c99bff;
+  --mk-ink: #0b141f;
+  --mk-wash: rgba(201, 155, 255, 0.07);
+  --mk-keep: var(--steel-hi);
+}
+:root[data-theme="light"] {
+  --mk: #7a2fc0;
+  --mk-ink: #fdfbf6;
+  --mk-wash: rgba(122, 47, 192, 0.06);
+  --mk-keep: var(--steel);
+}
+
+/* =================================================================== chrome */
+
+.mk-page { min-height: 100vh; }
+
+.mk-strip {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 12px 24px; flex-wrap: wrap;
+  padding: 12px var(--gutter, 24px);
+  background: var(--night);
+  border-bottom: 1px solid var(--rule-2);
+}
+.mk-strip__id { margin-right: auto; min-width: 0; }
+.mk-strip__t { margin: 0; font-family: var(--display); font-weight: 500; font-size: 22px; line-height: 1.1; letter-spacing: -0.005em; }
+.mk-strip__s { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-3); }
+
+.mk-seg {
+  display: inline-flex; flex: none;
+  border: 1px solid var(--rule-2); border-radius: 6px; padding: 3px; gap: 2px;
+  max-width: 100%;
+}
+.mk-seg button {
+  padding: 7px 13px; border-radius: 4px;
+  font: 500 13px/1.2 var(--sans); color: var(--ink-2);
+  white-space: nowrap;
+  transition: background-color 0.16s var(--ease-ui), color 0.16s var(--ease-ui);
+}
+.mk-seg button:hover { color: var(--ink); background: rgba(var(--ink-rgb), 0.06); }
+.mk-seg button[aria-pressed="true"] { background: var(--ink); color: var(--ink-in); }
+.mk-seg--view button[data-view="changes"][aria-pressed="true"] { background: var(--mk); color: var(--mk-ink); }
+.mk-seg button:focus-visible { outline-offset: 1px; }
+.mk-short { display: none; }
+
+.mk-theme {
+  display: grid; place-items: center; flex: none;
+  width: 36px; height: 36px; border-radius: 50%;
+  color: var(--ink-2);
+}
+.mk-theme:hover { color: var(--ink); background: rgba(var(--ink-rgb), 0.06); }
+.mk-theme svg { grid-area: 1 / 1; width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; }
+:root[data-theme="light"] .mk-theme__sun, :root:not([data-theme="light"]) .mk-theme__moon { display: none; }
+
+/* the page copy: laid out like the app's body (a column, main grows) */
+.mk-body { flex: 1; display: flex; flex-direction: column; }
+.mk-stage { position: relative; flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+/* the list: only in Changes. Wide: a column right of the page; narrow: a closed panel above it */
+.mk-list { display: none; }
+.mk-body[data-view="changes"] .mk-list { display: block; }
+@media (min-width: 1180px) {
+  .mk-body[data-view="changes"] { display: grid; grid-template-columns: minmax(0, 1fr) 320px; align-items: start; }
+  .mk-list {
+    position: sticky; top: var(--mk-strip-h, 70px); align-self: start;
+    max-height: calc(100vh - var(--mk-strip-h, 70px)); overflow: auto;
+    border-left: 1px solid var(--rule-2);
+  }
+  .mk-list__head { pointer-events: none; list-style: none; }
+  .mk-list__head::-webkit-details-marker { display: none; }
+}
+@media (max-width: 1179px) {
+  .mk-body[data-view="changes"] { display: flex; flex-direction: column; }
+  .mk-body[data-view="changes"] .mk-list { order: -1; border-bottom: 1px solid var(--rule-2); }
+  .mk-list__head { cursor: pointer; }
+}
+.mk-list__box { padding: 18px 20px 24px; }
+.mk-list__head { display: block; }
+.mk-list__t { display: inline; margin: 0; font-family: var(--display); font-weight: 500; font-size: 20px; }
+.mk-list__s { margin: 4px 0 0; font-size: 12.5px; color: var(--ink-3); }
+.mk-group { margin-top: 18px; }
+.mk-group__t {
+  margin: 0 0 4px; padding-bottom: 6px; border-bottom: 1px solid var(--rule);
+  font: 600 12px/1.3 var(--sans); color: var(--ink-2);
+}
+.mk-items { list-style: none; margin: 0; padding: 0; }
+.mk-item {
+  display: flex; gap: 10px; align-items: flex-start; width: 100%;
+  padding: 8px 8px 8px 6px; margin-left: -6px; border-radius: 6px;
+  text-align: left; color: var(--ink);
+  transition: background-color 0.16s var(--ease-ui);
+}
+.mk-item:hover { background: rgba(var(--ink-rgb), 0.05); }
+.mk-item[aria-current="true"] { background: var(--mk-wash); box-shadow: inset 2px 0 0 var(--mk); }
+.mk-item:not(.is-here) { opacity: 0.62; }
+.mk-item:not(.is-here):hover { opacity: 0.9; }
+.mk-item:not(.is-here) .mk-item__a { display: none; }   /* other pages: the title is enough */
+.mk-item:not(.is-here) { padding-top: 6px; padding-bottom: 6px; }
+.mk-item__txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mk-item__t { font-size: 13.5px; font-weight: 500; line-height: 1.35; }
+.mk-item__a { font-size: 12.5px; line-height: 1.4; color: var(--ink-3); }
+
+/* the number badge, shared by the list and the page */
+.mk-num, .mk-chip b {
+  display: inline-grid; place-items: center; flex: none;
+  min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px;
+  background: var(--mk); color: var(--mk-ink);
+  font: 600 11.5px/1 var(--sans); font-variant-numeric: tabular-nums;
+}
+.mk-item .mk-num { margin-top: 1px; }
+.is-keep > .mk-num, .mk-chip.is-keep b { background: transparent; color: var(--mk-keep); box-shadow: inset 0 0 0 1.5px var(--mk-keep); }
+
+@media (max-width: 760px) {
+  /* phones: the strip scrolls away with the page (sticky it would take a quarter of the screen) */
+  .mk-strip { position: static; gap: 10px; padding: 10px 16px 12px; }
+  .mk-strip__id { flex: 1 1 0; }
+  .mk-theme { order: 1; }
+  .mk-seg { order: 2; }
+  .mk-seg { width: 100%; }
+  .mk-seg button { flex: 1 1 0; padding: 7px 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .mk-long { display: none; }
+  .mk-short { display: inline; }
+  .mk-list__box { padding: 14px 16px 16px; }
+}
+
+/* =================================================================== screens */
+
+/* static copies: no entrance animation, no hover lift; the theme swaps instantly */
+.mk-still *, .mk-still *::before, .mk-still *::after { animation: none !important; transition: none !important; }
+.mk-screen .tab, .mk-screen a, .mk-screen .btn, .mk-screen label[for] { cursor: default; }
+
+/* item 5 (after): numbers only in the Overview figure list */
+.mk-nounit .fig__num::after { content: none; }
+
+/* item 4 (after): one heading and one intro line; the drop zone lines up with the heading */
+.mk-up-one .drop { padding-top: 26px; }
+.mk-up-one .up__lede { max-width: 46ch; }
+
+/* item 12 (after): the day total cell holds the number only */
+.mk-nolvl { text-align: right; }
+
+/* ---------- the "Changes" layer ---------- */
+.mk-layer {
+  position: absolute; inset: 0; z-index: 30;
+  overflow: hidden; pointer-events: none;
+}
+.mk-box {
+  position: absolute; box-sizing: border-box;
+  border: 1.5px dashed var(--mk); border-radius: 6px;
+  background: var(--mk-wash);
+}
+.mk-box.is-keep { border-color: var(--mk-keep); border-style: dotted; background: none; }
+.mk-chip {
+  position: absolute; z-index: 1;
+  display: inline-flex; align-items: center; gap: 0; height: 20px;
+  padding: 0; border-radius: 10px;
+  background: var(--mk); color: var(--mk-ink);
+  font: 600 11.5px/1 var(--sans); white-space: nowrap;
+  pointer-events: auto; cursor: pointer;
+  box-shadow: 0 0 0 2px var(--night);
+}
+.mk-chip span { padding: 0 9px 0 2px; }
+.mk-chip.is-keep { background: var(--night); color: var(--mk-keep); box-shadow: inset 0 0 0 1.5px var(--mk-keep), 0 0 0 2px var(--night); }
+.mk-chip.is-keep b { box-shadow: none; }
+.mk-chip.is-tight span { display: none; }
+.mk-chip.is-tight:hover span, .mk-chip.is-tight:focus-visible span, .mk-chip.is-tight.is-active span { display: inline; }
+.mk-chip:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.mk-layer.has-active .mk-box:not(.is-active), .mk-layer.has-active .mk-chip:not(.is-active) { opacity: 0.4; }
+.mk-box.is-active { border-style: solid; border-width: 2px; box-shadow: 0 0 0 4px var(--mk-wash); }
+.mk-chip.is-active { z-index: 2; box-shadow: 0 0 0 2px var(--night), 0 0 0 4px var(--mk); }
+
+@media (forced-colors: active) {
+  .mk-box { border-color: Highlight; }
+  .mk-chip, .mk-num { forced-color-adjust: none; }
+}

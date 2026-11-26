@@ -27,6 +27,12 @@ body {
   animation: page-in 0.45s ease both;
 }
 @keyframes page-in { from { opacity: 0; } to { opacity: 1; } }
+/* Session check (js/shell.js): the page stays dark until GET /api/auth/me answers, then the fade
+   above starts (a new animation name, so it restarts from 0). A signed-out visitor never sees the
+   page. If no script ever lifts it, the page still fades in after 8 s. Arrivals through a view
+   transition (html.vt-in) are not held: the transition fades the page in. */
+html.auth-wait:not(.vt-in) body { animation: page-in-late 0.45s ease 8s both; }
+@keyframes page-in-late { from { opacity: 0; } to { opacity: 1; } }
 
 ::selection { background: var(--steel); color: var(--dusk); -webkit-text-fill-color: var(--dusk); }
 :focus-visible { outline: 2px solid var(--steel-hi); outline-offset: 3px; border-radius: 2px; }
@@ -221,6 +227,11 @@ ol { list-style: none; }
   transition: color 0.16s var(--ease-ui), background-size 0.24s var(--ease-ui);
 }
 .signout:hover { color: var(--ink); background-size: 100% 1px; background-position: 0 100%; }
+.signout[disabled] { cursor: default; opacity: 0.6; }
+/* who is signed in (js/shell.js, from GET /api/auth/me), next to Sign out */
+.acct { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.who { max-width: 26ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: var(--ink-3); }
+@media (max-width: 1180px) { .who { display: none; } }
 
 /* theme toggle (js/shell.js): two line glyphs in one 32px cell; the one for the other theme shows.
    The swap is a rotate + fade (transform and opacity only). */
@@ -247,16 +258,14 @@ ol { list-style: none; }
 /* the theme swap is instant: no colour/hover transition plays for its frame */
 .theme-switch *, .theme-switch *::before, .theme-switch *::after { transition: none !important; }
 
-/* the logo is a white PNG: on paper it is painted in the ink through the same image as a mask */
+/* the logo is a white PNG: on paper the brand-colour logo (blue letters, grey lines) is shown instead */
 [data-theme="light"] .bar__brand { position: relative; }
 [data-theme="light"] .bar__brand img { visibility: hidden; }
 [data-theme="light"] .bar__brand::before {
   content: "";
   position: absolute; inset: 0;
-  background: var(--ink);
-  -webkit-mask: url("../assets/mgh-logo-white.png") center / contain no-repeat;
-  mask: url("../assets/mgh-logo-white.png") center / contain no-repeat;
-  opacity: 0.92;
+  background: url("../assets/mgh-logo-color.png") center / contain no-repeat;
+  opacity: 0.94;
   transition: opacity 0.2s var(--ease-ui);
 }
 [data-theme="light"] .bar__brand:hover::before { opacity: 1; }
@@ -275,8 +284,8 @@ ol { list-style: none; }
   font-size: 12.5px;
 }
 .foot p { --c: var(--ink-2); }
-/* the rounding note: small and muted (--ink-3 is >= 6.8:1 on the ground), on its own line */
-.foot .round-note { --c: var(--ink-3); flex-basis: 100%; font-size: 12px; line-height: 1.45; }
+/* the one unit/rounding line (left): muted, --ink-3 is >= 6.8:1 on the ground */
+.foot #foot-source { --c: var(--ink-3); }
 
 
 @media (max-width: 420px) {
@@ -297,6 +306,13 @@ ol { list-style: none; }
 .nr-s { display: block; margin-top: -0.14em; text-align: center; will-change: transform; }
 .nr-s i { display: block; font-style: normal; }
 .nr-on { font-variant-numeric: lining-nums tabular-nums; }
+
+/* ---------- carrier identity (CA.page.carrierLabel: the small jar glyph + the name in the carrier hue) ---------- */
+.car { display: inline-flex; align-items: center; gap: 10px; white-space: nowrap; }
+.car__mark { flex: none; width: 14px; height: 20px; overflow: visible; }
+.car__mark path { fill: none; stroke: var(--car); stroke-width: 1.4; stroke-linejoin: round; }
+.car__mark rect { fill: var(--water); transform-box: fill-box; transform-origin: 50% 100%; transform: scaleY(var(--lv, 1)); transition: transform 0.8s var(--ease); }
+.car__name { color: var(--car); font-size: 12.5px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
 
 /* ---------- shell additions (js/shell.js) ---------- */
 
@@ -386,10 +402,10 @@ a.menu__item { text-decoration: none; cursor: pointer; }
 }
 
 /* ---------- headline system (js/page.js CA.page.pop) ----------
-   One treatment for the Overview headline (.headline) and every page title (.pg__title): Fraunces
-   at a heavy weight but a display optical size, tight tracking and leading, lining figures (this
-   Fraunces build has no tnum; the roller's fixed digit cells keep the rolling number from
-   jittering, tabular-nums is kept for a face that has it), cream with ONE accent (sky) on the key figure
+   One treatment for the Overview headline (.headline) and every page title (.pg__title): Newsreader
+   at a medium weight and its display optical size, slightly tight tracking and leading, lining
+   figures (the roller's fixed digit cells keep the rolling number from jittering whether or not
+   the face has tabular figures), cream with ONE accent (sky) on the key figure
    or words, a hairline in the section colour, and a lighter Inter sub line. All values are tokens
    (--hl-*) in css/tokens.css. */
 .hl {

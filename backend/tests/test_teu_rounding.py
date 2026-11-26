@@ -41,21 +41,21 @@ def _is_whole(v):
 
 def test_xlsx_teu_cells_are_whole_numbers_and_json_stays_exact(client):
     _setup(client)
-    _typed_golden(client)          # week 45: to be arrived 47.673292, deficit -11.673292
+    _typed_golden(client)          # week 45 (14 suppliers): to be arrived 107.412232, deficit -71.412232
     js = client.get("/reports/allocation-vs-utilization", params={"year": 2026, "week": 45}).json()
-    assert js["forecast"] == pytest.approx(72.660565, abs=1e-4)          # JSON exact
-    assert js["to_be_arrived"] == pytest.approx(47.673292, abs=1e-4)
-    assert js["deficit_surplus"] == pytest.approx(-11.673292, abs=1e-4)
+    assert js["forecast"] == pytest.approx(132.399505, abs=1e-4)          # JSON exact
+    assert js["to_be_arrived"] == pytest.approx(107.412232, abs=1e-4)
+    assert js["deficit_surplus"] == pytest.approx(-71.412232, abs=1e-4)
 
     rows = _rows(client.get("/reports/allocation-vs-utilization/download", params={"year": 2026, "week": 45}).content)
     wk = next(x for x in rows if x[0] == "WK45")
     # FORECAST, CONFIRMED, UTILIZED, TO BE ARRIVED, TO BE UTILIZED, DEFICIT/SURPLUS
-    assert wk[1:7] == [73, 64, 28, 48, 36, -12]
+    assert wk[1:7] == [133, 64, 28, 108, 36, -72]
     assert all(_is_whole(v) for v in wk[1:7])
 
     head = next(x for x in rows if x[1:2] == ["MAERSK"])
     forecast = next(x for x in rows if x[0] == "FORECAST")
-    assert forecast[head.index("TOTAL")] == 73 and all(_is_whole(v) for v in forecast[1:] if v is not None)
+    assert forecast[head.index("TOTAL")] == 133 and all(_is_whole(v) for v in forecast[1:] if v is not None)
     for label in ("CONFIRMED", "UTILIZED", "LEFT"):
         for row in (x for x in rows if x[0] == label):
             assert all(_is_whole(v) for v in row[1:] if v is not None), (label, row)
@@ -92,4 +92,4 @@ def test_weekly_summary_xlsx_whole_teu(client):
         if x[0] and (x[0].startswith("WK") or x[0] == "TOTAL"):
             assert all(_is_whole(v) for v in x[1:7]), x
     wk45 = next(x for x in rows if x[0] == "WK45")
-    assert wk45[1] == 73 and wk45[6] == -12
+    assert wk45[1] == 133 and wk45[6] == -72  # 132.399505 up, -71.412232 away from zero

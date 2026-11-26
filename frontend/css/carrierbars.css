@@ -1,0 +1,86 @@
+/* The carrier bar chart (js/carrierbars.js) on the Overview (css/dashboard.css places it in .cb rows).
+   It started on Allocation vs Utilization, which now shows the same figures as numbers only.
+   Carrier hue: --car from [data-carrier] (css/tokens.css). Effects: transform and opacity only,
+   no blur; the entrance runs once per render (new lanes are built for each week) and nothing loops.
+
+   Entrance (about 0.9 s): rows 40 ms apart; the container grows from the left (scaleX), the
+   utilized fill follows, then the forecast pins drop in, the over-use segment grows and the
+   brackets fade in. --lt-base delays it all (the Overview sets 320 ms on the first load, so it
+   starts after the headline). js/dashboard.js lands the rolling numbers on the same delays.
+   Fill mode backwards: after the entrance the static styles hold (the focus dimming). */
+
+/* legend swatches */
+.k { display: inline-block; flex: none; width: 22px; height: 11px; border-radius: 2px; }
+.k--box { border: 1.5px solid var(--steel-hi); background: repeating-linear-gradient(90deg, rgba(var(--steel-hi-rgb), 0.2) 0 2px, transparent 2px 6px); }
+.k--fill { background: var(--steel-hi); }
+.k--over { background: repeating-linear-gradient(-45deg, var(--red) 0 3px, rgba(var(--red-rgb), 0.35) 3px 6px); }
+.k--none { border: 1.5px dashed var(--ink-3); background: transparent; }
+.k--fc { width: 3px; height: 16px; border-radius: 1px; background: var(--acc-forecast); }
+
+/* the shared TEU axis above the lanes */
+.lt-axis { position: relative; display: block; height: 18px; border-bottom: 1px solid var(--rule-2); }
+.lt-tick { position: absolute; bottom: 4px; transform: translateX(-50%); font-family: var(--sans); font-size: 11px; font-weight: 500; letter-spacing: 0.02em; text-transform: none; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.lt-tick:first-child { transform: none; }
+.lt-tick.is-last { transform: translateX(-100%); }
+.lt-unit { position: absolute; left: 0; top: -16px; font-size: 10px; letter-spacing: 0.12em; color: var(--ink-3); }
+
+/* one lane: grid lines, the container (confirmed), its fill (utilized), overflow, forecast marker */
+.lt { position: relative; display: block; height: 54px; }
+.lt__grid { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(var(--ink-rgb), 0.07); }
+.lt__box {
+  position: absolute; left: 0; top: 19px; height: 20px;
+  border: 1.5px solid var(--car);
+  border-radius: 1px;
+  background:
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--car) 20%, transparent) 0 2px, transparent 2px 7px),
+    color-mix(in srgb, var(--car) 7%, transparent);
+  box-shadow: var(--shadow-box);
+  transform-origin: 0 50%;
+}
+/* oblique top and end faces: the container reads as a box, not a flat bar */
+.lt__box::before, .lt__box::after { content: ""; position: absolute; pointer-events: none; }
+.lt__box::before {
+  left: -1.5px; right: -1.5px; bottom: calc(100% + 1.5px); height: 6px;
+  background: color-mix(in srgb, var(--car) 34%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--car) 70%, transparent);
+  transform: skewX(-45deg); transform-origin: 0 100%;
+}
+.lt__box::after {
+  left: calc(100% + 1.5px); top: -1.5px; width: 6px; height: calc(100% + 3px);
+  background: color-mix(in srgb, var(--car) 20%, transparent);
+  transform: skewY(-45deg); transform-origin: 0 0;
+}
+.lt__fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background-color: var(--car);
+  background-image: repeating-linear-gradient(90deg, var(--fill-hatch) 0 1.5px, transparent 1.5px 7px);
+  transform-origin: 0 50%;
+}
+.lt__over {
+  position: absolute; top: 19px; height: 20px;
+  background: repeating-linear-gradient(-45deg, var(--red) 0 4px, rgba(var(--red-rgb), 0.35) 4px 8px);
+  border: 1.5px solid var(--red); border-left: 0;
+  transform-origin: 0 50%;
+}
+.lt__none { position: absolute; left: 0; top: 19px; height: 20px; display: flex; align-items: center; padding-left: 10px; border-left: 1.5px dashed var(--car); font-size: 12px; font-style: italic; color: var(--ink-3); white-space: nowrap; }
+.lt__gap { position: absolute; top: 44px; height: 6px; border: 1.5px solid currentColor; border-top: 0; }
+.lt__gap.is-neg { color: var(--red-text); border-style: dashed; border-left-style: solid; border-right-style: solid; }
+.lt__gap.is-pos { color: var(--sea); border-style: dashed; border-left-style: solid; border-right-style: solid; }
+.lt__fc { position: absolute; top: 4px; bottom: 2px; width: 0; border-left: 2px solid var(--acc-forecast); margin-left: -1px; }
+.lt__fc::before { content: ""; position: absolute; top: -1px; left: -5px; border: 4px solid transparent; border-top: 5px solid var(--acc-forecast); }
+.lt__fc b { position: absolute; top: -5px; left: 7px; font-size: 11.5px; font-weight: 600; color: var(--acc-forecast); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.lt__fc.is-end b { left: auto; right: 7px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .lt > * { --lt-d: calc(var(--i, 0) * 40ms + var(--lt-base, 0ms)); }
+  .lt__box  { animation: lt-grow 0.46s var(--ease) backwards; animation-delay: var(--lt-d); }
+  .lt__fill { animation: lt-grow 0.44s var(--ease) backwards; animation-delay: calc(var(--lt-d) + 120ms); }
+  .lt__none { animation: lt-fade 0.3s ease backwards; animation-delay: calc(var(--lt-d) + 60ms); }
+  .lt__fc   { animation: lt-drop 0.32s cubic-bezier(0.22, 1.2, 0.36, 1) backwards; animation-delay: calc(var(--lt-d) + 420ms); }
+  .lt__over { animation: lt-grow 0.24s var(--ease) backwards; animation-delay: calc(var(--lt-d) + 480ms); }
+  .lt__gap  { animation: lt-fade 0.22s ease backwards; animation-delay: calc(var(--lt-d) + 520ms); }
+  @keyframes lt-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @keyframes lt-drop { from { opacity: 0; transform: translate3d(0, -12px, 0); } to { opacity: 1; transform: none; } }
+  @keyframes lt-fade { from { opacity: 0; } to { opacity: 1; } }
+}
+

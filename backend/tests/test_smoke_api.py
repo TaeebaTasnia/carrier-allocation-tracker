@@ -13,13 +13,13 @@ def test_end_to_end(client, real_rows):
     body = r.json()
     assert body["mgh_rows"] > 0 and body["unmatched_supplier_codes"]
     wk = {(w["year"], w["week"]): w for w in body["week_totals"]}
-    assert wk[(2026, 45)]["teu"] == pytest.approx(72.660565, abs=1e-4)
+    assert wk[(2026, 45)]["teu"] == pytest.approx(132.399505, abs=1e-4)  # 14 suppliers (12: 72.660565)
 
     # re-upload is idempotent (replaces weeks, no duplicates)
     with open(REAL_FORECAST, "rb") as f:
         client.post("/forecast/upload", files={"file": ("f.xlsx", f)})
     g = client.get("/forecast/weeks/2026/45").json()
-    assert g["cbm_plus"] == pytest.approx(2397.79865, abs=1e-4)
+    assert g["cbm_plus"] == pytest.approx(4369.18365, abs=1e-4)
     assert any(d["date"] == "2026-11-02" and abs(d["forecast_cbm"] - 353.19245) < 1e-4 for d in g["daily"])
 
     conf = {46: {"MAERSK": 20, "HAPAG": 20, "HELLMAN": 10, "ONE": 20, "FML": 0},
@@ -29,8 +29,9 @@ def test_end_to_end(client, real_rows):
         assert client.put(f"/weekly/2026/{w}", json={"confirmed": c}).status_code == 200
     # forecast re-upload must not touch confirmed
     assert client.get("/weekly/2026/46").json()["total_confirmed"] == 70
-    assert client.get("/weekly/2026/46").json()["deficit_surplus"] == pytest.approx(-17.766920, abs=1e-4)
-    assert client.get("/weekly/2026/47").json()["deficit_surplus"] == pytest.approx(7.569331, abs=1e-4)
+    # 14 suppliers: 70 - 106.913398 and 55 - 72.004274 (12 suppliers: -17.766920 / +7.569331)
+    assert client.get("/weekly/2026/46").json()["deficit_surplus"] == pytest.approx(-36.913398, abs=1e-4)
+    assert client.get("/weekly/2026/47").json()["deficit_surplus"] == pytest.approx(-17.004274, abs=1e-4)
 
     st = make_xlsx([["FML-ONELINE", 6, 1, "2026-11-05"], ["ONELINE", 4, 1, "2026-11-05"]],
                    ["Shipping Line", "TEUs", "Qty", "Date"])
@@ -38,7 +39,7 @@ def test_end_to_end(client, real_rows):
 
     s = client.get("/reports/weekly-summary", params={"year": 2026, "from_week": 45, "to_week": 47}).json()
     assert [w["week"] for w in s["weeks"]] == [45, 46, 47]
-    assert s["weeks"][1]["status"] == "deficit" and s["weeks"][2]["status"] == "surplus"
+    assert s["weeks"][1]["status"] == "deficit" and s["weeks"][2]["status"] == "deficit"  # wk47 was surplus with 12
 
     r = client.get("/reports/weekly-summary/download", params={"year": 2026, "from_week": 45, "to_week": 47})
     assert r.status_code == 200 and "spreadsheetml" in r.headers["content-type"]

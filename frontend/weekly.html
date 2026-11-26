@@ -4,21 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Weekly allocation · Carrier Allocation &amp; Utilization</title>
-<script>
-  try {
-    if (!(localStorage.getItem('ca.signedIn') || sessionStorage.getItem('ca.signedIn'))) location.replace('index.html');
-  } catch (e) {}
-  document.documentElement.classList.add('js');
-  // theme before the first paint (no dark flash): the saved choice, else the system setting.
-  // The toggle is in the top bar (js/shell.js); the colours are in css/tokens.css.
-  (function () { var t = null; try { t = localStorage.getItem('ca.theme'); } catch (e) {}
-    if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', t); })();
-</script>
+<script src="js/boot.js"></script>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Fraunces:opsz,wght,SOFT,WONK@9..144,600..900,0,0&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Newsreader:opsz,wght@6..72,400..700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/pages.css">
@@ -94,9 +84,6 @@
       <section aria-labelledby="bal-title">
         <h2 id="bal-title">The week as typed</h2>
         <dl class="figset" id="figs">
-          <div class="is-fc"><dd><span id="f-fc">—</span><span class="unit">TEU</span></dd><dt>Forecast, MGH (FML not included)</dt></div>
-          <div class="is-sec"><dd><span id="f-cf">—</span><span class="unit">TEU</span></dd><dt>Confirmed, five carriers</dt></div>
-          <div><dd><span id="f-left">—</span><span class="unit">TEU</span></dd><dt>Left in hand</dt></div>
           <div><dd><span id="f-tba">—</span><span class="unit">TEU</span></dd><dt>To be arrived</dt></div>
           <div id="f-bal-row"><dd><span id="f-bal">—</span><span class="unit">TEU</span></dd><dt id="f-bal-word">Deficit / surplus</dt></div>
         </dl>
@@ -118,8 +105,7 @@
 </main>
 
 <footer class="foot" data-ball="text">
-  <p class="round-note" data-ink>TEU figures are rounded up to whole TEU. Totals come from the exact values, so rows may not add up exactly.</p>
-  <p data-ink id="foot-source">Figures in TEU.</p>
+  <p data-ink id="foot-source">Figures in TEU, rounded up to whole TEU. 1 TEU is 33 CBM after the 30% uplift.</p>
   <p data-ink>MGH · Carrier Allocation &amp; Utilization</p>
 </footer>
 

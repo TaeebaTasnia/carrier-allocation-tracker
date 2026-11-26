@@ -1,0 +1,66 @@
+# LOCAL TESTING ONLY - never on the server. Adds to docker-compose.yml:
+#   - plain HTTP on http://127.0.0.1:8180 (instead of 80/443 with HTTPS),
+#   - a mock sign-in provider (backend/tests/mock_idp.py) on http://idp.localhost:8101 instead of Entra,
+#   - Postgres published on 127.0.0.1:55433 (CA_DEV_DB_PORT) for local tools and a locally run API
+#     (APP_ENV=dev, DATABASE_URL=postgresql+psycopg://ca:<POSTGRES_PASSWORD of dev.env>@127.0.0.1:55433/ca).
+# Own project name (carrier-allocation-dev), so its containers and volumes can never be the production ones.
+#
+# From the deploy folder:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file dev.env up -d --build
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file dev.env down -v
+name: carrier-allocation-dev
+
+services:
+  db:
+    # CA_DEV_DB_PORT: Windows (Hyper-V/WSL) may reserve 55433 ("bind: access forbidden"); check with
+    # `netsh interface ipv4 show excludedportrange protocol=tcp` and set another free port.
+    ports: !override
+      - "127.0.0.1:${CA_DEV_DB_PORT:-55433}:5432"
+    # Docker publishes no ports for a container that is only on an internal network (`data`), so the dev
+    # db also joins `dbhost`, a plain network that exists only in this file.
+    networks:
+      - data
+      - dbhost
+
+  api:
+    environment:
+      # Production refuses an http PUBLIC_URL/issuer (the session cookie is Secure), so the dev stack runs
+      # APP_ENV=dev, with sign-in ON, no CORS and the fixed SESSION_SECRET from dev.env. Dev also serves
+      # /docs inside the container (Caddy still answers 404 for /api/docs) and runs create_all + the
+      # supplier seed at startup (both no-ops after `migrate`).
+      APP_ENV: dev
+      PUBLIC_URL: http://127.0.0.1:8180
+      APP_CORS_ORIGINS: ""
+
+  # Offline OpenID Connect provider for trying the full sign-in without Entra. Same image as the API,
+  # with backend/tests mounted read-only (tests are not part of the image).
+  # The browser reaches it as http://idp.localhost:8101 (browsers and curl resolve *.localhost to
+  # 127.0.0.1); the API reaches the same URL through the network alias. Choose who signs in next with
+  #   curl -X POST http://idp.localhost:8101/_mock/next-login -H "Content-Type: application/json" \
+  #        -d '{"sub":"dev-1","email":"dev-admin@example.com","email_verified":true,"name":"Dev Admin"}'
+  mock-idp:
+    image: carrier-allocation-api:${CA_TAG:-local}
+    pull_policy: never
+    command: ["uvicorn", "--factory", "tests.mock_idp:create_smoke_app", "--host", "0.0.0.0", "--port", "8101"]
+    environment:
+      MOCK_IDP_ISSUER: ${OIDC_ISSUER}
+      MOCK_IDP_CLIENT_ID: ${OIDC_CLIENT_ID}
+      MOCK_IDP_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
+    volumes:
+      - ../backend/tests:/app/tests:ro
+    ports:
+      - "127.0.0.1:8101:8101"
+    networks:
+      edge:
+        aliases:
+          - idp.localhost
+    healthcheck:
+      disable: true
+
+  caddy:
+    # !override REPLACES the production list (80/443 are never bound by the dev stack)
+    ports: !override
+      - "127.0.0.1:8180:80"
+
+networks:
+  dbhost: {}

@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..config_service import get_config
+from ..db import lock
 from ..models import DailyActual, DailyStuffing, ForecastLine, Supplier, WeeklyEntry
 from ..utils import CARRIERS, week_dates
 from . import calc
@@ -102,6 +103,7 @@ def weeks_with_data(db: Session, year: int) -> list[int]:
 
 def update_entry(db: Session, year: int, week: int, confirmed: dict | None, fml_forecast_set: bool,
                  fml_forecast: float | None) -> WeeklyEntry:
+    lock(db, "weekly")  # read-modify-write: concurrent saves must not lose a carrier's value
     e = db.get(WeeklyEntry, (year, week))
     if e is None:
         e = WeeklyEntry(iso_year=year, iso_week=week, conf_maersk=0.0, conf_hapag=0.0,

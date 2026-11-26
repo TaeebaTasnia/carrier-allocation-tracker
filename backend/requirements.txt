@@ -1,8 +1,19 @@
-fastapi
-uvicorn
-sqlalchemy
-pandas
-openpyxl
-python-multipart
-httpx
-pytest
+# Runtime dependencies, pinned to the versions the test suite was run with (Python 3.12).
+fastapi==0.162.0
+starlette==1.10.0
+pydantic==2.14.3
+uvicorn==0.54.0
+SQLAlchemy==2.1.8
+alembic==1.20.1
+psycopg[binary]==3.3.9
+openpyxl==3.1.5
+defusedxml==0.7.1          # openpyxl parses through it automatically when installed (XML entity attacks)
+python-multipart==0.0.33
+# sign-in (OIDC, app/auth.py) and the signed session cookie. Authlib's Starlette client talks to the
+# identity provider through httpx (runtime dependency). joserfc (imported by app/auth.py; Authlib's JOSE
+# library) verifies the ID-token signature with cryptography: both pinned too.
+Authlib==1.9.10
+joserfc==1.8.0
+cryptography==50.0.2
+httpx==0.28.1
+itsdangerous==2.2.0

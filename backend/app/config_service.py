@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 import json
+import math
 
 from sqlalchemy.orm import Session
 
+from .db import lock
 from .models import Config
-from .utils import SPLIT_CARRIERS
+from .utils import MAX_ABS_NUM, SPLIT_CARRIERS
+
+MAX_LINE_MAP = 500       # shipping-line mapping entries
+LINE_NAME_MAX = 100      # same limit as a typed shipping line
+CBM_PER_TEU_RANGE = (0.01, 1000.0)
+UPLIFT_MAX = 1000.0
 
 DEFAULTS = {
     "uplift_pct": 30.0,
@@ -36,10 +43,17 @@ def validate(cfg: dict) -> dict:
         out["fml_default"] = float(cfg["fml_default"])
     except (TypeError, ValueError, KeyError):
         raise ConfigError("uplift_pct, cbm_per_teu, fml_default must be numbers")
+    if not all(math.isfinite(out[k]) and abs(out[k]) <= MAX_ABS_NUM for k in out):
+        raise ConfigError("uplift_pct, cbm_per_teu, fml_default must be finite numbers")
     if out["cbm_per_teu"] <= 0:
         raise ConfigError("cbm_per_teu must be > 0")
+    lo, hi = CBM_PER_TEU_RANGE
+    if not lo <= out["cbm_per_teu"] <= hi:
+        raise ConfigError(f"cbm_per_teu must be between {lo:g} and {hi:g}")
     if out["uplift_pct"] <= -100:
         raise ConfigError("uplift_pct must be > -100")
+    if out["uplift_pct"] > UPLIFT_MAX:
+        raise ConfigError(f"uplift_pct must be at most {UPLIFT_MAX:g}")
     if out["fml_default"] < 0:
         raise ConfigError("fml_default must be >= 0")
     split = cfg.get("split") or {}
@@ -49,17 +63,27 @@ def validate(cfg: dict) -> dict:
         split = {k: float(v) for k, v in split.items()}
     except (TypeError, ValueError):
         raise ConfigError("split values must be numbers")
+    if not all(math.isfinite(v) for v in split.values()):
+        raise ConfigError("split values must be finite numbers")
     if any(v < 0 for v in split.values()):
         raise ConfigError("split values must be >= 0")
     if abs(sum(split.values()) - 100.0) > 1e-9:
         raise ConfigError(f"split must total 100 (got {sum(split.values())})")
     out["split"] = split
     norm = {}
-    for k, v in (cfg.get("line_map") or {}).items():
+    line_map = cfg.get("line_map") or {}
+    if len(line_map) > MAX_LINE_MAP:
+        raise ConfigError(f"line_map can have at most {MAX_LINE_MAP} entries")
+    for k, v in line_map.items():
         v = str(v).strip().upper()
         if v not in VALID_TARGETS:
             raise ConfigError(f"line_map target {v!r} must be one of {sorted(VALID_TARGETS)}")
-        norm[str(k).strip().upper()] = v
+        key = str(k).strip().upper()
+        if "\x00" in key:
+            raise ConfigError("line_map shipping-line names must not contain NUL characters")
+        if len(key) > LINE_NAME_MAX:
+            raise ConfigError(f"line_map shipping-line names must be at most {LINE_NAME_MAX} characters")
+        norm[key] = v
     out["line_map"] = norm
     return out
 
@@ -72,6 +96,7 @@ def get_config(db: Session) -> dict:
 
 
 def update_config(db: Session, patch: dict) -> dict:
+    lock(db, "config")  # read-merge-rewrite: concurrent saves must not lose each other's changes
     merged = get_config(db)
     patch = dict(patch)
     lm_patch = patch.pop("line_map", None)

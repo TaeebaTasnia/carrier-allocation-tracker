@@ -253,7 +253,6 @@
     sCheck(); sLook(); aCheck(); aLook();
   });
 
-  $('#foot-source').textContent = 'Files come straight from the backend at ' + D.API_BASE + '; nothing is calculated in the browser.';
   window.CA.cursor.init();
   sCheck(); sLook(); aCheck(); aLook();
 })();

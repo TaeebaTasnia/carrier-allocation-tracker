@@ -1,20 +1,36 @@
 /* Shared shell for every signed-in page: the top bar (logo, tabs with grouped menus and the
- * sliding indicator, ISO week selector, Upload files on the Overview, Sign out), the cursor ball
- * element, ISO week maths, the selected week (kept in the URL and in localStorage so it follows
- * you between pages), an unsaved-changes guard, and a polite live region.
+ * sliding indicator, ISO week selector, Upload files on the Overview, who is signed in, Sign out),
+ * the cursor ball element, ISO week maths, the selected week (kept in the URL and in localStorage
+ * so it follows you between pages), an unsaved-changes guard, a polite live region, and the
+ * session check.
  *
- * Use: <script src="js/shell.js" data-page="weekly"></script> as the FIRST element in <body>.
- * It writes the bar in place while the page is parsed (no flash, no layout jump).
+ * Use: <script src="js/shell.js" data-page="weekly"></script> as the FIRST element in <body>
+ * (js/data.js must be on the page too). It writes the bar in place while the page is parsed (no
+ * flash, no layout jump).
+ *
+ * Session check: the server decides who is signed in. The page stays dark (html.auth-wait, see
+ * css/base.css) until GET /api/auth/me answers (CA.auth.me() in js/data.js, once per page):
+ *   200  the email shows next to Sign out, the page fades in (CA.auth.user keeps the role)
+ *   401  no session: off to index.html?next=<this page>, the page never shows
+ *   403  account deactivated: off to index.html?auth_error=inactive
+ *   anything else (server down): the page fades in and shows its own loading error
+ * Arrivals through a view transition skip the wait (the transition fades the page in); a page
+ * restored from the back/forward cache is checked again. Sign out = POST /api/auth/logout, then
+ * index.html.
  *
  *   CA.theme   get() -> 'dark' | 'light', set(t), toggle()   (saved in localStorage 'ca.theme';
  *              fires 'ca:themechange' on document)
  *   CA.weeks   isoWeekOf, weeksInYear, mondayOf, rangeText, shift, isoDate, todayIso
  *   CA.shell   page, week() -> {year, week}, onWeek(fn), go(year, week), say(text),
  *              setGuard(fn)  fn() returns a message while there are unsaved changes, else ''
- *              href(page)    a link to another page that keeps the week (and the dev ?api)
+ *              hasUnsaved()  true while the guard reports unsaved changes (never asks)
+ *              href(page)    a link to another page that keeps the week
  */
 (function () {
   'use strict';
+
+  // dark until the session is confirmed (removed by checkSession below)
+  document.documentElement.classList.add('auth-wait');
 
   var script = document.currentScript;
   var PAGE = (script && script.getAttribute('data-page')) || 'overview';
@@ -183,7 +199,9 @@
           '<svg class="theme__sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="2.9"/><path d="M8 1.6v1.5M8 12.9v1.5M1.6 8h1.5M12.9 8h1.5M3.5 3.5l1.05 1.05M11.45 11.45l1.05 1.05M3.5 12.5l1.05-1.05M11.45 4.55l1.05-1.05"/></svg>' +
           '<svg class="theme__moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.2 10.1A5.6 5.6 0 0 1 5.9 2.8a5.6 5.6 0 1 0 7.3 7.3z"/></svg>' +
         '</button>' +
-        '<button class="signout" type="button" id="signout">Sign out</button>' +
+        // the email is filled in with textContent once GET /api/auth/me answers (never in this markup)
+        '<span class="acct"><span class="who" id="who" hidden></span>' +
+        '<button class="signout" type="button" id="signout">Sign out</button></span>' +
       '</div>' +
     '</header>' +
     '<p class="sr" aria-live="polite" id="live"></p>';
@@ -210,6 +228,45 @@
     var msg = pending();
     return !msg || window.confirm(msg + '\n\nLeave without saving?');
   }
+
+  /* ---------- session: GET /api/auth/me (see the header) ---------- */
+
+  function reveal() { docEl.classList.remove('auth-wait'); }
+  function showUser(u) {
+    var who = document.getElementById('who');
+    if (!who) return;
+    who.textContent = u && u.email ? u.email : '';
+    who.title = u && u.email ? 'Signed in as ' + u.email : '';
+    who.hidden = !(u && u.email);
+  }
+  function checkSession(fresh) {
+    var A = window.CA.auth;
+    if (!A) { reveal(); return; }                  // js/data.js missing: nothing to ask
+    A.me(fresh).then(function (u) {
+      showUser(u);
+      reveal();
+    }, function (err) {
+      var status = err && err.status;
+      // 401: off to index.html?next=...; 403 (deactivated): off to index.html?auth_error=inactive. Stays dark.
+      if (status === 401 || status === 403) { A.toSignIn(); return; }
+      reveal();                                     // the server could not be asked: the page shows its own error
+    });
+  }
+  // leaving for index.html (sign out, no session): the landing has no view transition, so skip the one
+  // this page offers (otherwise the browser aborts it on the landing and reports an uncaught error there)
+  window.addEventListener('pageswap', function (e) {
+    var vt = e.viewTransition, to = e.activation && e.activation.entry && e.activation.entry.url;
+    if (!vt || !to || !/\/(index\.html)?$/.test(new URL(to, location.href).pathname)) return;
+    [vt.ready, vt.finished, vt.updateCallbackDone].forEach(function (p) { if (p && p.catch) p.catch(function () {}); });
+    vt.skipTransition();
+  });
+  // back/forward cache: a page restored after signing out must not keep showing its figures
+  window.addEventListener('pageshow', function (e) {
+    if (!e.persisted) return;
+    docEl.classList.remove('vt-in');
+    docEl.classList.add('auth-wait');
+    checkSession(true);
+  });
 
   function pad2(n) { return (n < 10 ? '0' : '') + n; }
   function showWeek() {
@@ -275,9 +332,13 @@
     $('#signout').addEventListener('click', function () {
       if (!okToLeave()) return;
       guard = null;
-      try { localStorage.removeItem('ca.signedIn'); sessionStorage.removeItem('ca.signedIn'); } catch (e) {}
-      location.href = 'index.html';
+      var b = this, A = window.CA.auth;
+      b.disabled = true;
+      // ends every session of this user on the server, then the landing (even if the server did not answer)
+      (A ? A.logout() : Promise.resolve()).then(function () { location.href = 'index.html'; });
     });
+
+    checkSession(false);
 
     // leaving with unsaved work: in-app links ask first, closing the tab gets the browser prompt
     document.addEventListener('click', function (e) {
@@ -397,6 +458,7 @@
     say: say,
     href: href,
     setGuard: function (fn) { guard = fn; },
+    hasUnsaved: function () { return !!pending(); },
     okToLeave: okToLeave
   };
 })();

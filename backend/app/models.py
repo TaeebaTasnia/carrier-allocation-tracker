@@ -2,10 +2,36 @@ from __future__ import annotations
 
 import datetime as dt
 
-from sqlalchemy import Date, Float, Index, Integer, String, Text
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Float, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
+
+ROLES = ("admin", "user")
+
+
+def utcnow() -> dt.datetime:
+    return dt.datetime.now(dt.timezone.utc)
+
+
+class User(Base):
+    """Allow-list of people who may sign in (managed with ``python -m app.cli``; no auto-provisioning).
+
+    ``email`` is stored lowercased and is how an administrator names a user. ``sub`` (and ``oid`` for
+    Microsoft Entra) are bound on the first sign-in and matched afterwards. Raising ``session_epoch``
+    invalidates every session cookie issued for this user (sign-out, deactivation)."""
+    __tablename__ = "users"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String, unique=True)
+    name: Mapped[str] = mapped_column(String, default="")
+    role: Mapped[str] = mapped_column(String, default="user")
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    sub: Mapped[str | None] = mapped_column(String, nullable=True, unique=True)
+    oid: Mapped[str | None] = mapped_column(String, nullable=True, unique=True)
+    session_epoch: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_login_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    __table_args__ = (CheckConstraint("role IN ('admin', 'user')", name="role"),)
 
 
 class Supplier(Base):

@@ -1,10 +1,10 @@
-/* Overview controller: data loading, figures, jars, notes. The bar, menus and week live in js/shell.js. */
+/* Overview controller: data loading, figures, the carrier bar chart, notes. The bar, menus and week live in js/shell.js. */
 (function () {
   'use strict';
 
   var D = window.CA.data;
   var W = window.CA.weeks, SH = window.CA.shell;
-  var rangeText = W.rangeText, mondayOf = W.mondayOf;
+  var rangeText = W.rangeText;
   function say(t) { SH.say(t); }
   var CARRIERS = D.CARRIERS;
   var reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
@@ -44,57 +44,84 @@
 
   var ov = $('#main');
   var stage = $('.stage');
-  var jars, firstLoad = true, reqId = 0, loadingTimer = 0;
+  var firstLoad = true, reqId = 0, loadingTimer = 0;
   var pinned = 'left', current = null;
 
-  /* ---------- build the jars ---------- */
+  /* ---------- the carrier chart (js/carrierbars.js + css/carrierbars.css) ----------
+   * One row per carrier, built once: a button holding the label block the jars had (name in the
+   * carrier hue, the TEU left as a big rolling figure, a status line) and the lane on the shared
+   * TEU scale, plus its details tooltip. Each render replaces the lanes, so the entrance plays
+   * once per week shown. */
 
-  var row = $('#jars');
-  var tpl = $('#jar-tpl');
-  CARRIERS.forEach(function (name, i) {
-    var node = tpl.content.firstElementChild.cloneNode(true);
-    node.setAttribute('data-jar', name);
-    node.setAttribute('data-carrier', name);
-    node.style.setProperty('--d', (260 + i * 80) + 'ms');
-    $('.jar__name', node).textContent = name;
-    $('.tip__title', node).textContent = name;
-    var tip = $('.tip', node);
+  var CB = window.CA.carrierBars;
+  var bars = $('#bars');
+  var rowsEl = $('#bars-rows');
+  CARRIERS.forEach(function (name) {
+    var li = document.createElement('li');
+    li.className = 'cb__item';
+    li.setAttribute('data-carrier', name);
+    li.setAttribute('data-bar', name);
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'cb__row';
+    var ln = document.createElement('span');
+    ln.className = 'cb__lane';
+    ln.setAttribute('aria-hidden', 'true');
+    var lab = document.createElement('span');
+    lab.className = 'cl';
+    lab.innerHTML = '<span class="cl__name" data-ink></span>' +
+      '<span class="cl__left" data-ink><span class="cl__v">—</span><span class="cl__unit"></span></span>' +
+      '<span class="cl__pct" data-ink></span>';
+    $('.cl__name', lab).textContent = name;
+    btn.appendChild(lab); btn.appendChild(ln);
+    var tip = document.createElement('div');
+    tip.className = 'tip';
+    tip.setAttribute('role', 'tooltip');
     tip.id = 'tip-' + name.toLowerCase();
-    $('.jar__btn', node).setAttribute('aria-describedby', tip.id);
-    row.appendChild(node);
+    tip.innerHTML = '<p class="tip__title"></p><dl class="tip__rows"></dl>';
+    $('.tip__title', tip).textContent = name;
+    btn.setAttribute('aria-describedby', tip.id);
+    btn.setAttribute('aria-label', name + ': loading.');
+    li.appendChild(btn); li.appendChild(tip);
+    rowsEl.appendChild(li);
   });
 
-  // entrance order: headline (its own reveal, js/page.js), figures, jars, notes
+  // the lanes for one week (or empty: the axis and the grid lines only)
+  function drawChart(wk) {
+    var sc = CB.scale(wk && !wk.nothing ? CB.maxOf(wk.res.carriers) : 0);
+    CB.axis($('#axis'), sc);
+    CARRIERS.forEach(function (name, i) {
+      var ln = $('.cb__item[data-bar="' + name + '"] .cb__lane');
+      var c = wk ? wk.res.carriers[name] : { forecast: 0, confirmed: 0, utilized: 0 };
+      var base = (firstLoad ? 320 : 0) + i * 40;
+      ln.textContent = '';
+      ln.appendChild(CB.lane(c, sc, {
+        i: i, blank: !wk || wk.nothing, fc: !(wk && wk.noForecast && name !== 'FML'),
+        // the pin's number rolls in as the pin drops (css/carrierbars.css: +420 ms)
+        pin: function (b, val) { NUM.roll(b, val, { format: teu, delay: base + 420, duration: 480 }); }
+      }));
+    });
+  }
+  function blankBars() { drawChart(null); }  blankBars();
+
+  // entrance order: headline (its own reveal, js/page.js), figures, chart, notes
   $$('.fig').forEach(function (f, i) { f.style.setProperty('--d', (120 + i * 55) + 'ms'); });
   $('.stage__key').style.setProperty('--d', '760ms');
   $('#note-arrive').style.setProperty('--d', '560ms');
-  $('#note-balance').style.setProperty('--d', '660ms');
 
-  jars = new window.CA.Jars(stage);
   window.CA.cursor.init();
-  $$('.jar').forEach(function (j) {
-    var name = j.getAttribute('data-jar');
-    window.CA.cursor.tilt($('.jar__glass', j), {
-      max: 9, reach: 36, perspective: 640,
-      onTilt: function (rx, ry) { jars.lean(name, ry); }
-    });
-  });
   $$('.fig__num').forEach(function (n) { window.CA.cursor.tilt(n, { max: 7, reach: 0, perspective: 500 }); });
-  window.addEventListener('pointermove', onFirstPointer, { passive: true });
-  function onFirstPointer() { jars.measure(); window.removeEventListener('pointermove', onFirstPointer); }
 
 
   /* ---------- figures: accent bar + link to the picture ---------- */
 
   var bar = $('.figs__bar');
-  var JAR_FOCUS = { forecast: 'forecast', confirmed: 'confirmed', utilized: 'utilized', left: 'left', arrive: 'none', balance: 'none' };
   function focusKey(key) {
     current = key;
     $$('.fig').forEach(function (f) { f.classList.toggle('is-on', f.getAttribute('data-key') === key); });
+    // css/dashboard.css dims the parts of the chart the figure is not about
     stage.setAttribute('data-focus', key);
-    jars.setFocus(JAR_FOCUS[key] || 'left');
-    $('#note-arrive').classList.toggle('is-hot', key === 'arrive');
-    $('#note-balance').classList.toggle('is-hot', key === 'balance');
+    $('#note-arrive').classList.toggle('is-hot', key === 'arrive' || key === 'balance');
     placeBar();
   }
   function placeBar() {
@@ -121,15 +148,15 @@
   $('.figs').addEventListener('focusout', function (e) { if (!e.relatedTarget || !e.relatedTarget.closest('.figs')) focusKey(pinned); });
   window.addEventListener('resize', placeBar);
 
-  /* ---------- phones: one readout under the jar row instead of floating tooltips ---------- */
+  /* ---------- phones: one readout under the chart instead of floating tooltips ---------- */
 
   var narrowMQ = matchMedia('(max-width: 760px)');
-  var readJar = null;
+  var readRow = null;
   function showReadout(j) {
     var box = $('#readout');
-    readJar = j;
+    readRow = j;
     if (!j || !narrowMQ.matches) { box.hidden = true; return; }
-    $('#readout-title').textContent = j.getAttribute('data-jar');
+    $('#readout-title').textContent = j.getAttribute('data-bar');
     $('#readout-rows').innerHTML = $('.tip__rows', j).innerHTML;
     box.hidden = false;
   }
@@ -137,24 +164,21 @@
   /* ---------- tooltips: Esc dismisses (WCAG 1.4.13) ---------- */
 
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') $$('.jar').forEach(function (j) { j.classList.add('tip-off'); });
+    if (e.key === 'Escape') $$('.cb__item').forEach(function (j) { j.classList.add('tip-off'); j.classList.remove('is-open'); });
   });
-  $$('.jar').forEach(function (j) {
-    var btn = $('.jar__btn', j);
+  $$('.cb__item').forEach(function (j) {
+    var btn = $('.cb__row', j);
     j.addEventListener('pointerleave', function () { j.classList.remove('tip-off'); });
     btn.addEventListener('blur', function () { j.classList.remove('tip-off'); j.classList.remove('is-open'); });
     // tap or click pins the details open (touch has no hover)
     btn.addEventListener('click', function () {
       var open = !j.classList.contains('is-open');
-      $$('.jar.is-open').forEach(function (o) { o.classList.remove('is-open'); });
+      $$('.cb__item.is-open').forEach(function (o) { o.classList.remove('is-open'); });
       j.classList.toggle('is-open', open);
       j.classList.remove('tip-off');
       showReadout(open ? j : null);
     });
     btn.addEventListener('focus', function () { if (narrowMQ.matches) showReadout(j); });
-  });
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') $$('.jar.is-open').forEach(function (o) { o.classList.remove('is-open'); });
   });
 
 
@@ -186,7 +210,6 @@
       pop($('#headline'), [headText]);
       pop($('#sub'), [rangeText(sel.year, sel.week)]);
       stageMessage('', '');
-      if (firstLoad) jars.setOutline(16);
       window.CA.cursor.refresh();
     }, firstLoad ? 250 : 450);
     D.getWeek(sel.year, sel.week).then(function (res) {
@@ -272,15 +295,14 @@
     bal.classList.toggle('is-surplus', status === 'surplus');
     $('#status-word').textContent = status === 'deficit' ? 'Deficit' : status === 'surplus' ? 'Surplus' : status === 'balanced' ? 'Balanced' : 'Deficit / surplus: no forecast yet';
 
-    // jars
-    $('#jars').classList.toggle('is-blank', nothing);
-    if (nothing) jars.setOutline(16);
-    else jars.setData(res.carriers, { fromEmpty: firstLoad, delay: 420, stagger: 90 });
-    CARRIERS.forEach(function (name) { fillJar(name, res.carriers[name], res, nothing); });
-    ['.key--glass', '.key--water', '.key--tick'].forEach(function (s) { $(s).hidden = nothing; });
-    $('.key--rest').hidden = !nothing;
-    $('.key--ghost').hidden = nothing || !CARRIERS.some(function (c) { return res.carriers[c].confirmed <= 0; });
-    if (nothing) stageMessage('', 'The jars fill once a forecast and confirmed space are on file for ' + range + '. Upload the forecast under Uploads below.');
+    // the chart: new lanes for this week (the entrance plays once), one shared scale;
+    // under each one the label block the jars had
+    if (!firstLoad) bars.removeAttribute('data-first');
+    drawChart({ res: res, nothing: nothing, noForecast: noForecast });
+    CARRIERS.forEach(function (name) { fillLabel(name, res.carriers[name], res, nothing); });
+    $('.key--none').hidden = nothing || !CARRIERS.some(function (c) { return res.carriers[c].confirmed <= 0; });
+    $('.key--over').hidden = nothing || !CARRIERS.some(function (c) { return res.carriers[c].utilized > res.carriers[c].confirmed + CB.EPS; });
+    if (nothing) stageMessage('', 'The chart fills once a forecast and confirmed space are on file for ' + range + '. Upload the forecast under Upload below.');
     else stageMessage('', '');
 
     // notes
@@ -290,51 +312,34 @@
     var tube = $('#tube');
     $('#tube-tick').style.setProperty('--tx', (noForecast ? 0 : arrivedShare * (tube.clientWidth - 1)).toFixed(1) + 'px');
     tube.setAttribute('aria-label', noForecast ? 'No forecast for this week'
-      : 'Arrived so far, from the stuffing report, ' + teu(actual) + ' of ' + teu(res.forecast) + ' TEU forecast; ' + teu(tba) + ' TEU still to arrive');
+      : 'Arrived so far, from daily stuffing, ' + teu(actual) + ' of ' + teu(res.forecast) + ' TEU forecast; ' + teu(tba) + ' TEU still to arrive');
     countTo($('#l-forecast'), noForecast ? null : res.forecast, o);
     countTo($('#l-actual'), noForecast ? null : actual, o);
     countTo($('#l-arrive'), noForecast ? null : tba, o);
-    var adj = (res.daily || []).filter(function (d) { return d.actual_cbm_source === 'entered'; }).length;
-    var anyStuff = (res.daily || []).some(function (d) { return d.actual_cbm_source && d.actual_cbm_source !== 'none' && d.actual_cbm_source !== 'entered'; });
-    var fine = $('#arrive-fine');
-    fine.hidden = false;
-    fine.textContent = 'Arrived so far is the CBM from the daily stuffing report (its CBM column if the file has one, otherwise TEU x CBM per TEU) divided by the CBM per TEU' +
-      (adj ? '; ' + adj + (adj === 1 ? ' day is' : ' days are') + ' counted as adjusted in Date-wise.' : '.') +
-      (anyStuff || adj ? '' : ' No stuffing report is on file for this week yet, so it reads 0.');
-
-    countTo($('#b-left'), noForecast ? null : left, o);
-    countTo($('#b-arrive'), noForecast ? null : tba, o);
-    countTo($('#b-total'), noForecast ? null : ds, { duration: dur, format: teuDs });
-    var sum = $('#note-balance .ledger__sum');
-    sum.classList.toggle('is-deficit', status === 'deficit');
-    sum.classList.toggle('is-surplus', status === 'surplus');
-    $('#b-word').textContent = status === 'deficit' ? 'Deficit' : status === 'surplus' ? 'Surplus' : status === 'balanced' ? 'Balanced' : 'Balance';
-
-    // footer
-    var src = D.USE_BACKEND ? 'Data from the backend at ' + D.API_BASE + '.' : 'Demo data: weeks 45 to 47 of the 2026 workbook.';
-    if (D.FIXTURE) src += ' Test fixture: ' + D.FIXTURE + '.';
-    $('#foot-source').textContent = 'Figures in TEU. 1 TEU is 33 CBM after the 30% uplift. ' + src;
 
     placeBar();
-    if (readJar) showReadout(readJar);
+    if (readRow) showReadout(readRow);
     window.CA.cursor.refresh();
     if (!firstLoad) say(headText + '. ' + $('#sub').textContent);
     firstLoad = false;
   }
 
-  function fillJar(name, c, res, nothing) {
-    var node = $('.jar[data-jar="' + name + '"]');
+  // the label block beside each lane (the jars' labels, unchanged): name, the TEU left as a big
+  // rolling figure with its unit, a status line; plus the screen-reader label and the details
+  function fillLabel(name, c, res, nothing) {
+    var node = $('.cb__item[data-bar="' + name + '"]');
     var mode = nothing ? 'blank' : c.confirmed <= 0 ? 'none' : c.left < 0 ? 'over' : 'ok';
     node.classList.toggle('is-over', mode === 'over');
     node.classList.toggle('is-none', mode === 'none');
-    var v = $('.jar__v', node), unit = $('.jar__unit', node), p = $('.jar__pct', node), btn = $('.jar__btn', node);
+    node.classList.toggle('is-blank', mode === 'blank');
+    var v = $('.cl__v', node), unit = $('.cl__unit', node), p = $('.cl__pct', node), btn = $('.cb__row', node);
     var o = { duration: firstLoad ? 1100 : 900, delay: firstLoad ? 420 : 0 };
     if (mode === 'blank') {
       countTo(v, null); unit.textContent = ''; p.textContent = 'Nothing on file';
-      btn.setAttribute('aria-label', name + ': nothing on file for this week. The low water is a resting level, not capacity.');
+      btn.setAttribute('aria-label', name + ': nothing on file for this week.');
     } else if (mode === 'none') {
       countTo(v, c.forecast, o); unit.textContent = ' TEU'; p.textContent = 'Forecast only';
-      btn.setAttribute('aria-label', name + ': no capacity confirmed. The faint hatched level is the forecast allocation, ' + teu(c.forecast) + ' TEU, not confirmed space.');
+      btn.setAttribute('aria-label', name + ': no capacity confirmed. The forecast allocation is ' + teu(c.forecast) + ' TEU, not confirmed space.');
     } else if (mode === 'over') {
       countTo(v, c.left, o); unit.textContent = ' TEU'; p.textContent = 'Over by ' + teu(-c.left) + ' TEU';
       btn.setAttribute('aria-label', name + ': over confirmed space by ' + teu(-c.left) + ' TEU, ' + teu(c.utilized) + ' utilized of ' + teu(c.confirmed) + ' confirmed.');
@@ -369,18 +374,18 @@
     pop($('#headline'), [headText]);
     pop($('#sub'), [rangeText(sel.year, sel.week) + '. No figures are shown until it loads.']);
     ['forecast', 'confirmed', 'utilized', 'left', 'arrive', 'balance'].forEach(function (k) { setFig(k, null); });
-    jars.setOutline(16);
-    $$('.jar').forEach(function (node) {
-      countTo($('.jar__v', node), null);
-      $('.jar__unit', node).textContent = '';
-      $('.jar__pct', node).textContent = '';
-      node.classList.remove('is-over', 'is-none');
-      $('.jar__btn', node).setAttribute('aria-label', node.getAttribute('data-jar') + ': not loaded.');
+    blankBars();
+    $$('.cb__item').forEach(function (node) {
+      countTo($('.cl__v', node), null);
+      $('.cl__unit', node).textContent = '';
+      $('.cl__pct', node).textContent = '';
+      node.classList.remove('is-over', 'is-none', 'is-blank');
+      $('.cb__row', node).setAttribute('aria-label', node.getAttribute('data-bar') + ': not loaded.');
       $('.tip__rows', node).textContent = '';
     });
-    ['#l-forecast', '#l-actual', '#l-arrive', '#b-left', '#b-arrive', '#b-total'].forEach(function (s) { countTo($(s), null); });
+    if (readRow) showReadout(readRow);
+    ['#l-forecast', '#l-actual', '#l-arrive'].forEach(function (s) { countTo($(s), null); });
     $('#tube-fill').style.setProperty('--f', 0);
-    $('#arrive-fine').hidden = true;
     stageMessage('The week did not load', (err && err.message) || 'Something went wrong while loading the week.', true);
     window.CA.cursor.refresh();
     say('Could not load week ' + sel.week + '. ' + ((err && err.message) || ''));
@@ -390,13 +395,12 @@
   // used by uploads.js
   window.CA.overview = {
     reload: load,
-    go: function (y, w) { if (!SH.go(y, w)) load(); },
-    mondayIso: function () { return mondayOf(sel.year, sel.week).toISOString().slice(0, 10); }
+    go: function (y, w) { if (!SH.go(y, w)) load(); }
   };
 
   // a week change: the old headline leaves at once, the new one rises when the week has loaded
   SH.onWeek(function (y, w) { sel = { year: y, week: w }; window.CA.page.headExit($('#headline')); load(); });
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { placeBar(); window.CA.cursor.invalidate(); jars.layout(); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { placeBar(); window.CA.cursor.invalidate(); });
   focusKey(pinned);
   load();
 })();

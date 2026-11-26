@@ -3,12 +3,10 @@
  * confirmed, utilized, left, pct_share, pct_of_confirmed, the week totals and the daily rows).
  * Download: /reports/allocation-vs-utilization/download, saved under the Content-Disposition name.
  *
- * Top: one lane per carrier on a single shared TEU scale. Confirmed space is a container (outline
- * in the carrier hue), utilized fills it from the left (red past the end when over-used), the
- * forecast is an amber marker, and a dashed bracket joins the container's end to the marker so the
- * gap reads at a glance. Figures beside it: forecast, confirmed, confirmed - forecast (negative =
- * below forecast, the backend's sign), utilized, left, utilized as % of confirmed, share of the
- * week's utilized. Totals follow the backend: forecast total = MGH forecast (excludes FML),
+ * Top: numbers only, one ruled row per carrier (the bar chart of these figures lives on the
+ * Overview, js/carrierbars.js): forecast, confirmed, confirmed - forecast (negative = below
+ * forecast, the backend's sign), utilized, left, utilized as % of confirmed, share of the week's
+ * utilized; a status word under the name when a carrier is over confirmed or has nothing confirmed. Totals follow the backend: forecast total = MGH forecast (excludes FML),
  * confirmed total includes FML.
  * Below: days x carriers, stuffed TEU per cell, cell colour depth = cell / busiest cell; the day
  * total carries a sky-blue level. A carrier opens Weekly allocation, a day opens Date-wise. */
@@ -28,31 +26,8 @@
   function q(y, w) { return '?year=' + y + '&week=' + w; }
   function keepWeek() { try { localStorage.setItem('ca.week', JSON.stringify(sel)); } catch (e) {} }
 
-  /* ---------- shared scale ---------- */
-  function niceScale(max) {
-    if (!(max > 0)) max = 10;
-    var steps = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000];
-    var step = steps[steps.length - 1];
-    for (var i = 0; i < steps.length; i++) { if (max / steps[i] <= 5) { step = steps[i]; break; } }
-    var top = Math.ceil(max * 1.04 / step) * step;
-    var ticks = [];
-    for (var t = 0; t <= top + 1e-9; t += step) ticks.push(t);
-    return { top: top, ticks: ticks };
-  }
-  function pc(v, top) { return (Math.max(0, v) / top * 100).toFixed(3) + '%'; }
+  /* ---------- per-carrier figures (a ruled table; the bar chart of the same figures is on the Overview) ---------- */
 
-  function drawAxis(sc) {
-    var ax = $('#axis');
-    ax.textContent = '';
-    sc.ticks.forEach(function (t, i) {
-      var s = el('span', 'av__tick' + (i === sc.ticks.length - 1 ? ' is-last' : ''), P.teu(t));
-      s.style.left = pc(t, sc.top);
-      ax.appendChild(s);
-    });
-    ax.appendChild(el('span', 'av__unit', 'TEU'));
-  }
-
-  /* ---------- carrier lanes ---------- */
   function num(v, cls, label, o) {
     var td = el('td', o && o.tdCls);
     td.setAttribute('data-label', label);
@@ -67,53 +42,19 @@
     return c.td;
   }
 
-  function lane(c, r, sc, i, noFc) {
-    var fc = r.forecast, cf = r.confirmed, ut = r.utilized;
-    var td = el('td', 'av__lane');
-    td.setAttribute('aria-hidden', 'true');
-    var tr = el('span', 'lt');
-    tr.style.setProperty('--i', i);
-    sc.ticks.forEach(function (t) {
-      if (t === 0) return;
-      var g = el('span', 'lt__grid'); g.style.left = pc(t, sc.top); tr.appendChild(g);
-    });
-    if (cf > EPS) {
-      var box = el('span', 'lt__box'); box.style.width = pc(cf, sc.top);
-      var fill = el('span', 'lt__fill'); fill.style.width = (Math.min(1, ut / cf) * 100).toFixed(3) + '%';
-      box.appendChild(fill);
-      tr.appendChild(box);
-    } else {
-      tr.appendChild(el('span', 'lt__none', 'nothing confirmed'));
-    }
-    if (ut > cf + EPS) {
-      var ov = el('span', 'lt__over');
-      ov.style.left = pc(cf, sc.top);
-      ov.style.width = pc(ut - cf, sc.top);
-      tr.appendChild(ov);
-    }
-    if (!(noFc && c !== 'FML') && fc > EPS) {
-      var lo = Math.min(fc, cf), hi = Math.max(fc, cf);
-      if (hi - lo > EPS) {
-        var gap = el('span', 'lt__gap ' + (cf < fc ? 'is-neg' : 'is-pos'));
-        gap.style.left = pc(lo, sc.top); gap.style.width = pc(hi - lo, sc.top);
-        tr.appendChild(gap);
-      }
-      var m = el('span', 'lt__fc' + (fc / sc.top > 0.86 ? ' is-end' : ''));
-      m.style.left = pc(fc, sc.top);
-      m.appendChild(el('b', null, P.teu(fc)));
-      tr.appendChild(m);
-    }
-    td.appendChild(tr);
-    return td;
+  // the carrier name in its hue, with a short status word under it (over confirmed / nothing confirmed)
+  function carrierCell(c, r) {
+    var wrap = el('span', 'av__car');
+    wrap.setAttribute('data-carrier', c);
+    wrap.appendChild(el('span', 'car__name', c));
+    var st = r.utilized > r.confirmed + EPS ? ['over confirmed', 'is-over'] : !(r.confirmed > EPS) ? ['nothing confirmed', 'is-none'] : null;
+    if (st) wrap.appendChild(el('span', 'av__status ' + st[1], st[0]));
+    return wrap;
   }
 
   function renderLanes(res, noFc) {
     var tb = $('#rows'), tf = $('#foot');
     tb.textContent = ''; tf.textContent = '';
-    var max = 0;
-    CARRIERS.forEach(function (c) { var r = res.carriers[c]; max = Math.max(max, r.forecast, r.confirmed, r.utilized); });
-    var sc = niceScale(max);
-    drawAxis(sc);
     CARRIERS.forEach(function (c, i) {
       var r = res.carriers[c];
       var tr = el('tr', 'av__row');
@@ -124,10 +65,9 @@
       a.href = 'weekly.html' + q(sel.year, sel.week);
       a.setAttribute('aria-label', c + ': open Weekly allocation for week ' + sel.week);
       a.addEventListener('click', keepWeek);
-      a.appendChild(P.carrierLabel(c, r.confirmed > 0 ? r.utilized / r.confirmed : 0));
+      a.appendChild(carrierCell(c, r));
       th.appendChild(a);
       tr.appendChild(th);
-      tr.appendChild(lane(c, r, sc, i, noFc));
       var fcKnown = !(noFc && c !== 'FML');
       tr.appendChild(num(fcKnown ? r.forecast : null, 'n--fc', 'Forecast').td);
       tr.appendChild(num(r.confirmed, '', 'Confirmed').td);
@@ -142,9 +82,6 @@
     var ft = el('tr');
     var fth = el('th'); fth.scope = 'row'; fth.textContent = 'Week ' + sel.week;
     ft.appendChild(fth);
-    var note = el('td', 'av__lane av__totnote');
-    note.textContent = 'Forecast excludes FML · confirmed includes it';
-    ft.appendChild(note);
     ft.appendChild(num(noFc ? null : res.forecast, 'n--fc', 'Forecast (MGH)').td);
     ft.appendChild(num(res.total_confirmed, '', 'Confirmed (all five)').td);
     ft.appendChild(gapCell(noFc ? null : res.total_confirmed - res.forecast, 'vs forecast'));
@@ -285,6 +222,13 @@
     });
   });
 
+  /* ---------- MyShipment (placeholder: the API does not exist yet, nothing is sent) ---------- */
+  $('#ms').addEventListener('click', function () {
+    var m = $('#dl-msg');
+    m.className = 'save__msg av__dl';
+    m.textContent = 'MyShipment is not connected yet. This button will send the report there once the connection is set up.';
+  });
+
   /* ---------- load ---------- */
   function setState(s) { main.setAttribute('data-state', s); main.setAttribute('aria-busy', s === 'loading' ? 'true' : 'false'); }
 
@@ -307,6 +251,7 @@
       $('#body').hidden = nothing;
       $('#dl').disabled = false;
       $('#dl').hidden = nothing;   // an empty week would only give a workbook of headings
+      $('#ms').hidden = nothing;   // nothing to send either
       if (nothing) {
         P.pop($('#sub'), [W.rangeText(sel.year, sel.week) + '. Nothing on file for this week yet.'], { delay: 200, step: 14, dur: 520 });
       } else {
@@ -315,7 +260,6 @@
         renderGrid(res);
       }
       first = false;
-      $('#foot-source').textContent = 'Figures in TEU. Data from the backend at ' + D.API_BASE + '.';
       if (window.CA.cursor) window.CA.cursor.refresh();
     }, function (err) {
       if (id !== reqId) return;

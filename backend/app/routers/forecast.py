@@ -1,39 +1,47 @@
 from __future__ import annotations
 
-import io
+import logging
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import insert, tuple_
 from sqlalchemy.orm import Session
 
 from ..config_service import get_config
-from ..db import get_db
+from ..db import get_db, lock
 from ..models import ForecastLine, Supplier
-from ..parsers.forecast import ParseError, parse_forecast
-from ..services import calc, data
+from ..parsers.common import FileParseError
+from ..parsers.forecast import parse_forecast
+from ..services import calc
 from ..services.data import mgh_vol_by_date
+from ..uploads import read_xlsx_upload
 from .weekly import _check_week
 
 router = APIRouter(prefix="/forecast", tags=["forecast"])
+log = logging.getLogger("app.forecast")
 
 
 @router.post("/upload")
-async def upload_forecast(file: UploadFile = File(...), db: Session = Depends(get_db)):
+def upload_forecast(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    # sync def: parsing and the bulk insert run in the threadpool, not on the event loop
+    buf = read_xlsx_upload(file, "forecast file")
     try:
-        rows = parse_forecast(io.BytesIO(await file.read()))
-    except ParseError as e:
+        rows = parse_forecast(buf)
+    except FileParseError as e:
         raise HTTPException(400, str(e))
-    except Exception as e:
-        raise HTTPException(400, f"Cannot read forecast file: {e}")
+    except Exception:
+        log.exception("forecast upload: cannot read %r", file.filename)
+        raise HTTPException(400, "Cannot read the forecast file. Check that it is the forecast .xlsx export.")
     if not rows:
         raise HTTPException(400, "No forecast rows with an Rfi date found")
     weeks = sorted({(r["iso_year"], r["iso_week"]) for r in rows})
     # Replace forecast data only for the weeks present in this file; confirmed entries are untouched.
+    lock(db, "forecast")  # one upload at a time: concurrent replaces of the same week must not double rows
     db.query(ForecastLine).filter(tuple_(ForecastLine.iso_year, ForecastLine.iso_week).in_(weeks)).delete(
         synchronize_session=False)
     for i in range(0, len(rows), 5000):
         db.execute(insert(ForecastLine), rows[i:i + 5000])
     db.commit()
+    log.info("forecast upload: %d rows, weeks %s", len(rows), weeks)
     codes = {r["supplier"] for r in rows}
     known = {c for (c,) in db.query(Supplier.code)}
     cfg = get_config(db)

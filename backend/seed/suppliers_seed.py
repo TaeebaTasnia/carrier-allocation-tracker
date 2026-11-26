@@ -11,11 +11,13 @@ SEED_SUPPLIERS = [
     ("84827", "Jay Jay Mills (Bangladesh) Private Limited", "JAYJAYCGP"),
     ("84833", "Flamingo Fashions Ltd", "FLAFASGAZ"),
     ("84854", "Divine Intimates Ltd.", "DIVINTCGP"),
+    ("77591", "Pacific Blue (Jeans Wear) Ltd", "PACBLUSAV"),
+    ("84894", "Friends Knittings Ltd.", "FRIKNIGAZ"),
 ]
 
 
 def seed_suppliers(db) -> int:
-    """Insert the screenshot suppliers if the table is empty."""
+    """Insert the supplier list (updated 2026-11-26: 14 suppliers) if the table is empty."""
     from app.models import Supplier
     if db.query(Supplier).count():
         return 0

@@ -274,8 +274,11 @@
     var ins = masks(t, lines, label, whole);
     t.classList.add('hl-on');
     var n = ins.length, step = lineStep(n), base = o.delay || 0, end = 0;
-    // 135%: with leading 1.02 the Fraunces ascenders stand ~0.11em above the line box and the mask
-    // reaches 0.2em below it, so a smaller offset lets ascender tips peek through the mask edge
+    // 135%: the line must start fully below its mask, which reaches 0.2em below the line box.
+    // Newsreader at leading 1.04 keeps its ascenders and figures inside the line box (accented
+    // capitals stand ~0.2em above it), so the minimum is ~120% for plain English titles and ~138%
+    // for accented capitals; the exit (mask top pad 0.16em, descenders inside the box) needs ~111%.
+    // Re-check these if the face or leading changes: tips peeking at the mask edge is the symptom.
     var KF = [{ transform: 'translate3d(0,135%,0)', opacity: 0 }, { transform: 'none', opacity: 1 }];
     ins.forEach(function (inn, i) {
       inn.animate(KF, { duration: T.dur, delay: base + i * step, easing: T.ease, fill: 'backwards' });
@@ -463,6 +466,25 @@
     if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
     return (n / 1048576).toFixed(1) + ' MB';
   }
+
+  /* The one footer line (#foot-source). The HTML already holds the default wording; here the CBM per
+     TEU and the uplift come from the real config (one GET /config, non-blocking, falls back to the
+     HTML text). In ?demo the figures are fake, so the line says so; no other developer text. */
+  function footLine() {
+    var node = document.getElementById('foot-source'), D = window.CA && window.CA.data, API = window.CA && window.CA.api;
+    if (!node || !D) return;
+    var demo = D.USE_BACKEND === false;
+    function write(cfg) {
+      var s = 'Figures in TEU, rounded up to whole TEU. 1 TEU is ' + fmt(cfg.cbm_per_teu) + ' CBM after the ' + fmt(cfg.uplift_pct) + '% uplift.';
+      node.textContent = s + (demo ? ' Demo data: weeks 45 to 47 of the 2026 workbook.' : '');
+    }
+    if (demo) { write({ cbm_per_teu: 33, uplift_pct: 30 }); return; }
+    if (!API || typeof API.getConfig !== 'function') return;
+    API.getConfig().then(function (c) {
+      if (c && isFinite(c.cbm_per_teu) && isFinite(c.uplift_pct)) write(c);
+    }, function () {});
+  }
+  setTimeout(footLine, 0);
 
   window.CA = window.CA || {};
   window.CA.page = {

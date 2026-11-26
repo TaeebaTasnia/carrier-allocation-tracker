@@ -61,23 +61,22 @@
   --water-deep: #1f6fa8;
 
   /* headings: one display face and one accent colour for every page title (swap here) */
-  --display: "Fraunces", "Cormorant Garamond", Georgia, serif;
+  --display: "Newsreader", "Cormorant Garamond", Georgia, serif;
   --head-accent: #8fd8ff;                  /* sky, 11.9 / 9.6 */
 
   /* page headline system (css/base.css .hl, js/page.js CA.page.pop): the Overview headline and
-   * every page title. The face is loaded in each page head as
-   *   Fraunces:opsz,wght,SOFT,WONK@9..144,600..900,0,0
-   * opsz and wght are live (any --hl-weight from 600 to 900, any --hl-opsz from 9 to 144);
-   * SOFT and WONK are pinned to 0 in that URL (sharp terminals, no leaning "wonky" letters), so
-   * setting them in CSS does nothing: change the URL instead. */
+   * every page title. The face (Newsreader, a quiet editorial text-and-display serif) is loaded
+   * in each signed-in page head as
+   *   Newsreader:opsz,wght@6..72,400..700
+   * opsz and wght are live (any --hl-weight from 400 to 700, any --hl-opsz from 6 to 72). */
   --hl-family: var(--display);
-  --hl-weight: 800;                        /* heavy, but... */
-  --hl-opsz: 72;                           /* ...drawn from a display optical size above the set
-                                              size: sharper contrast and a tighter fit than auto
-                                              (opsz = px size), without the near-vanishing
-                                              hairlines and cramped word spaces of 144 */
-  --hl-track: -0.018em;                    /* tracking */
-  --hl-leading: 1.02;                      /* line height */
+  --hl-weight: 500;                        /* medium: presence without the chunk of a bold */
+  --hl-opsz: 72;                           /* the face's display cut (its top optical size): finer
+                                              hairlines and a tighter fit than auto (opsz = px
+                                              size), which would draw the 32px phone size from
+                                              the sturdier text cut */
+  --hl-track: -0.012em;                    /* tracking */
+  --hl-leading: 1.04;                      /* line height */
   --hl-size-hero: clamp(32px, 3.3vw, 54px);/* Overview headline */
   --hl-size-page: clamp(36px, 4.2vw, 62px);/* page titles */
   --hl-accent: var(--head-accent);         /* the one accent: key figure / key words only */

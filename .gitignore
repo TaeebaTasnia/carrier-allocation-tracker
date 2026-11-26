@@ -7,3 +7,9 @@ __pycache__/
 node_modules/
 .claude-flow/
 *.log
+
+# Never commit: the old local database folder, deployment secrets, database dumps
+backend/data/
+.env
+deploy/.env
+deploy/backups/

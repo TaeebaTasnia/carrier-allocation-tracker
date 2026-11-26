@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..services import data, reports
+from ..validation import check_year
 from .weekly import _check_week, _daily_json
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -21,7 +22,9 @@ def _xlsx(content: bytes, name: str) -> Response:
     return Response(content, media_type=XLSX, headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
-def _check_range(from_week, to_week):
+def _check_range(from_week, to_week, year=None):
+    if year is not None:
+        check_year(year)
     for w in (from_week, to_week):
         if w is not None and not 1 <= w <= 53:
             raise HTTPException(422, "from_week/to_week must be between 1 and 53")
@@ -32,14 +35,14 @@ def _check_range(from_week, to_week):
 @router.get("/weekly-summary")
 def weekly_summary(year: int, from_week: int | None = None, to_week: int | None = None,
                    db: Session = Depends(get_db)):
-    _check_range(from_week, to_week)
+    _check_range(from_week, to_week, year)
     return data.weekly_summary(db, year, from_week, to_week)
 
 
 @router.get("/weekly-summary/download")
 def weekly_summary_download(year: int, from_week: int | None = None, to_week: int | None = None,
                             db: Session = Depends(get_db)):
-    _check_range(from_week, to_week)
+    _check_range(from_week, to_week, year)
     s = data.weekly_summary(db, year, from_week, to_week)
     return _xlsx(reports.weekly_summary_xlsx(s), f"weekly-summary-{year}.xlsx")
 

@@ -4,11 +4,10 @@ import io
 
 import openpyxl
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect, text
 
-from app.db import migrate_schema
 from app.parsers.stuffing import parse_stuffing, parse_stuffing_ex
-from tests.conftest import REAL_FORECAST, make_xlsx
+from tests.conftest import REAL_FORECAST, alembic_upgrade, make_xlsx
 
 TOL = 1e-4
 CONF = {"MAERSK": 20, "HAPAG": 24, "HELLMAN": 0, "ONE": 10, "FML": 10}
@@ -63,12 +62,15 @@ def test_workbook_week45_golden_entered(client):
     _setup(client)
     _typed_golden(client)
     w = client.get("/weekly/2026/45").json()
-    assert w["forecast"] == pytest.approx(72.660565, abs=TOL)
+    # 14-supplier list (12 suppliers before 2026-11-26: forecast 72.660565, to be arrived 47.673292,
+    # deficit -11.673292)
+    assert w["forecast"] == pytest.approx(132.399505, abs=TOL)
     assert w["total_confirmed"] == 64 and w["total_utilized"] == 28
     assert w["total_actual_teu"] == pytest.approx(824.58 / 33, abs=TOL)
-    assert w["to_be_arrived"] == pytest.approx(47.673292, abs=TOL)
+    assert w["to_be_arrived"] == pytest.approx(132.399505 - 824.58 / 33, abs=TOL)
+    assert w["to_be_arrived"] == pytest.approx(107.412232, abs=TOL)
     assert w["to_be_utilized"] == 36
-    assert w["deficit_surplus"] == pytest.approx(-11.673292, abs=TOL)
+    assert w["deficit_surplus"] == pytest.approx(-71.412232, abs=TOL)
     assert w["status"] == "deficit"
     days = {d["date"]: d for d in client.get("/daily", params={"year": 2026, "week": 45}).json()["days"]}
     assert sum(d["actual_cbm"] for d in days.values()) == pytest.approx(824.58)
@@ -83,11 +85,11 @@ def test_no_cbm_column_uses_teu_x_33(client):
     assert up["cbm_column_found"] is False and up["carrier_cbm"] == {} and up["cbm_by_date"] == {}
     w = client.get("/weekly/2026/45").json()
     assert w["total_actual_teu"] == pytest.approx(28.0)
-    assert w["to_be_arrived"] == pytest.approx(72.660565 - 28, abs=TOL)
-    assert w["to_be_arrived"] == pytest.approx(44.660565, abs=TOL)
+    assert w["to_be_arrived"] == pytest.approx(132.399505 - 28, abs=TOL)  # 14 suppliers (12: 72.660565 - 28)
+    assert w["to_be_arrived"] == pytest.approx(104.399505, abs=TOL)
     assert w["to_be_utilized"] == 36
-    assert w["deficit_surplus"] == pytest.approx(36 - 44.660565, abs=TOL)
-    assert w["deficit_surplus"] == pytest.approx(-8.660565, abs=TOL)
+    assert w["deficit_surplus"] == pytest.approx(36 - 104.399505, abs=TOL)
+    assert w["deficit_surplus"] == pytest.approx(-68.399505, abs=TOL)
     days = {d["date"]: d for d in client.get("/daily", params={"year": 2026, "week": 45}).json()["days"]}
     for d, teu in (("2026-11-02", 8), ("2026-11-03", 4), ("2026-11-04", 4), ("2026-11-05", 12)):
         assert days[d]["actual_cbm"] == pytest.approx(teu * 33) and days[d]["actual_teu"] == pytest.approx(teu)
@@ -208,25 +210,21 @@ def test_parser_blank_and_text_cbm_is_none():
 
 
 # ---- migration ----
-def test_migration_adds_cbm_to_old_schema_and_is_repeatable(tmp_path):
-    eng = create_engine("sqlite:///" + str(tmp_path / "old.db"))
-    with eng.begin() as c:
-        c.execute(text("CREATE TABLE daily_stuffing (id INTEGER PRIMARY KEY AUTOINCREMENT, date DATE, "
-                       "shipping_line VARCHAR, carrier VARCHAR, teus FLOAT, qty FLOAT, feeder_vessel VARCHAR, "
-                       "fvsl_etd VARCHAR, fvsl_eta VARCHAR, mother_vessel VARCHAR, mvsl_etd VARCHAR, mvsl_eta VARCHAR)"))
-        c.execute(text("INSERT INTO daily_stuffing (date, shipping_line, carrier, teus, qty) "
-                       "VALUES ('2026-11-03', 'MAERSK', 'MAERSK', 4.0, 1.0)"))
-
-    def cols():
+def test_baseline_migration_has_cbm_column_and_is_repeatable(fresh_db_url):
+    """Replaces the old startup `ALTER TABLE ... ADD COLUMN cbm` test: the schema now comes from the Alembic
+    baseline. Upgrading an empty database creates daily_stuffing with a nullable `cbm` column; running the
+    upgrade again changes nothing; a row without CBM reads back as None."""
+    alembic_upgrade(fresh_db_url)
+    alembic_upgrade(fresh_db_url)  # idempotent: already at head
+    eng = create_engine(fresh_db_url)
+    try:
+        cols = {c["name"]: c for c in inspect(eng).get_columns("daily_stuffing")}
+        assert list(cols).count("cbm") == 1 and cols["cbm"]["nullable"] is True
+        with eng.begin() as c:
+            c.execute(text("INSERT INTO daily_stuffing (date, shipping_line, carrier, teus, qty) "
+                           "VALUES ('2026-11-03', 'MAERSK', 'MAERSK', 4.0, 1.0)"))
         with eng.connect() as c:
-            return [r[1] for r in c.execute(text("PRAGMA table_info(daily_stuffing)"))]
-
-    assert "cbm" not in cols()
-    migrate_schema(eng)
-    migrate_schema(eng)  # idempotent
-    assert cols().count("cbm") == 1
-    with eng.connect() as c:
-        row = c.execute(text("SELECT shipping_line, teus, qty, cbm FROM daily_stuffing")).one()
-    assert tuple(row) == ("MAERSK", 4.0, 1.0, None)
-    # a table that does not exist yet is left alone (create_all will build it with the column)
-    migrate_schema(create_engine("sqlite:///" + str(tmp_path / "empty.db")))
+            row = c.execute(text("SELECT shipping_line, teus, qty, cbm FROM daily_stuffing")).one()
+        assert tuple(row) == ("MAERSK", 4.0, 1.0, None)
+    finally:
+        eng.dispose()

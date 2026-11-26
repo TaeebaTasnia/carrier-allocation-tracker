@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import datetime as dt
-import math
 from typing import BinaryIO
 
 import openpyxl
 
-from ..utils import norm_header
+from ..utils import date_in_range, finite_num, norm_header, strip_nul
+from .common import FileParseError, capped_rows
 
 ALIASES = {
     "line": {"shipping line", "shippingline", "line", "carrier"},
@@ -25,11 +25,17 @@ ALIASES = {
 }
 
 
-class StuffingParseError(ValueError):
+class StuffingParseError(FileParseError):
     pass
 
 
 def _to_date(v):
+    """Cell -> date, or None if unreadable or outside the supported calendar range (2000-2100)."""
+    d = _cell_date(v)
+    return d if d is not None and date_in_range(d) else None
+
+
+def _cell_date(v):
     if isinstance(v, dt.datetime):
         return v.date()
     if isinstance(v, dt.date):
@@ -44,12 +50,8 @@ def _to_date(v):
     return None
 
 
-def _num(v):
-    try:
-        f = float(v)
-    except (TypeError, ValueError):
-        return None
-    return f if math.isfinite(f) else None
+# Non-numeric, NaN/Infinity or absurdly large (> 1e12) -> None (the row is skipped if that is its TEUs).
+_num = finite_num
 
 
 def _text(v):
@@ -57,7 +59,7 @@ def _text(v):
         return None
     if isinstance(v, (dt.datetime, dt.date)):
         return v.isoformat()
-    s = str(v).strip()
+    s = strip_nul(str(v)).strip()
     return s or None
 
 
@@ -74,48 +76,52 @@ def parse_stuffing_ex(source: str | BinaryIO, report_date: dt.date | None) -> tu
     """Like parse_stuffing but also returns whether the file has a CBM column."""
     wb = openpyxl.load_workbook(source, read_only=True, data_only=True)
     try:
-        rows = list(wb[wb.sheetnames[0]].iter_rows(values_only=True))
+        # One streaming pass: look for the header in the first 20 rows, then read the data rows from the
+        # same iterator (the row cap applies while reading).
+        it = capped_rows(wb[wb.sheetnames[0]], "stuffing file")
+        hdr_i, cols = None, {}
+        for i, row in enumerate(it):
+            found = {}
+            for ci, c in enumerate(row):
+                n = norm_header(c)
+                for key, al in ALIASES.items():
+                    if n in al and key not in found:
+                        found[key] = ci
+            if "line" in found and "teus" in found:
+                hdr_i, cols = i, found
+                break
+            if i >= 19:
+                break
+        if hdr_i is None:
+            raise StuffingParseError("Could not find header row with a shipping line column and a TEUs column")
+        if "date" not in cols and report_date is None:
+            raise StuffingParseError("No date column in file; supply the report_date query parameter")
+        out, skipped = [], []
+        for ri, r in enumerate(it, start=hdr_i + 2):
+            def g(k):
+                ci = cols.get(k)
+                return r[ci] if ci is not None and ci < len(r) else None
+            line = _text(g("line"))
+            teus = _num(g("teus"))
+            if line is None and teus is None:
+                continue
+            if line is None or teus is None:
+                skipped.append(f"row {ri}: missing shipping line or numeric TEUs")
+                continue
+            if "date" in cols:
+                d = _to_date(g("date"))
+                if d is None:
+                    if report_date is None:
+                        skipped.append(f"row {ri}: unreadable date")
+                        continue
+                    d = report_date
+            else:
+                d = report_date
+            out.append({
+                "date": d, "line": line, "teus": teus, "qty": _num(g("qty")), "cbm": _num(g("cbm")),
+                **{k: _text(g(k)) for k in ("feeder_vessel", "fvsl_etd", "fvsl_eta",
+                                            "mother_vessel", "mvsl_etd", "mvsl_eta")},
+            })
     finally:
         wb.close()
-    hdr_i, cols = None, {}
-    for i, row in enumerate(rows[:20]):
-        found = {}
-        for ci, c in enumerate(row):
-            n = norm_header(c)
-            for key, al in ALIASES.items():
-                if n in al and key not in found:
-                    found[key] = ci
-        if "line" in found and "teus" in found:
-            hdr_i, cols = i, found
-            break
-    if hdr_i is None:
-        raise StuffingParseError("Could not find header row with a shipping line column and a TEUs column")
-    if "date" not in cols and report_date is None:
-        raise StuffingParseError("No date column in file; supply the report_date query parameter")
-    out, skipped = [], []
-    for ri, r in enumerate(rows[hdr_i + 1:], start=hdr_i + 2):
-        def g(k):
-            ci = cols.get(k)
-            return r[ci] if ci is not None and ci < len(r) else None
-        line = _text(g("line"))
-        teus = _num(g("teus"))
-        if line is None and teus is None:
-            continue
-        if line is None or teus is None:
-            skipped.append(f"row {ri}: missing shipping line or numeric TEUs")
-            continue
-        if "date" in cols:
-            d = _to_date(g("date"))
-            if d is None:
-                if report_date is None:
-                    skipped.append(f"row {ri}: unreadable date")
-                    continue
-                d = report_date
-        else:
-            d = report_date
-        out.append({
-            "date": d, "line": line, "teus": teus, "qty": _num(g("qty")), "cbm": _num(g("cbm")),
-            **{k: _text(g(k)) for k in ("feeder_vessel", "fvsl_etd", "fvsl_eta",
-                                        "mother_vessel", "mvsl_etd", "mvsl_eta")},
-        })
     return out, skipped, "cbm" in cols

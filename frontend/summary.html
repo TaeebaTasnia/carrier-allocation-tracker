@@ -4,21 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Weekly summary · Carrier Allocation &amp; Utilization</title>
-<script>
-  try {
-    if (!(localStorage.getItem('ca.signedIn') || sessionStorage.getItem('ca.signedIn'))) location.replace('index.html');
-  } catch (e) {}
-  document.documentElement.classList.add('js');
-  // theme before the first paint (no dark flash): the saved choice, else the system setting.
-  // The toggle is in the top bar (js/shell.js); the colours are in css/tokens.css.
-  (function () { var t = null; try { t = localStorage.getItem('ca.theme'); } catch (e) {}
-    if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', t); })();
-</script>
+<script src="js/boot.js"></script>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Fraunces:opsz,wght,SOFT,WONK@9..144,600..900,0,0&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Newsreader:opsz,wght@6..72,400..700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/pages.css">
@@ -41,6 +31,10 @@
         <button class="btn btn--sec" type="button" id="dl">
           <svg class="btn__ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v8M4.8 7.8 8 11l3.2-3.2"/><path d="M3 12.5v1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1"/></svg>
           <span>Download .xlsx</span>
+        </button>
+        <button class="btn btn--sec" type="button" id="ms">
+          <svg class="btn__ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 11V3M4.8 6.2 8 3l3.2 3.2"/><path d="M3 12.5v1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1"/></svg>
+          <span>Add to MyShipment</span>
         </button>
       </form>
     </div>
@@ -81,8 +75,7 @@
 </main>
 
 <footer class="foot" data-ball="text">
-  <p class="round-note" data-ink>TEU figures are rounded up to whole TEU. Totals come from the exact values, so rows may not add up exactly.</p>
-  <p data-ink id="foot-source">Figures in TEU. Within half a TEU either way a week reads as balanced.</p>
+  <p data-ink id="foot-source">Figures in TEU, rounded up to whole TEU. 1 TEU is 33 CBM after the 30% uplift.</p>
   <p data-ink>MGH · Carrier Allocation &amp; Utilization</p>
 </footer>
 

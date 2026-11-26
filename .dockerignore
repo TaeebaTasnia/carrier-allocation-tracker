@@ -1,0 +1,10 @@
+# Build context of deploy/web.Dockerfile (context = repository root).
+# ALLOW-LIST: everything is excluded, then only the files the web image may contain are let back in.
+# Do not add mockups/, tests/, README.md, serve_frontend.py, frontend-video/, BRD/, forecast-report/,
+# backend/ or any data. (backend/Dockerfile uses backend/ as its context and backend/.dockerignore.)
+*
+!deploy/Caddyfile
+!frontend/*.html
+!frontend/css/
+!frontend/js/
+!frontend/assets/

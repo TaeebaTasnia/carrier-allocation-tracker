@@ -59,6 +59,13 @@
     });
   });
 
+  // Placeholder: the MyShipment API does not exist yet, so this only tells the user. No request is made.
+  $('#ms').addEventListener('click', function () {
+    var m = $('#dl-msg');
+    m.className = 'save__msg';
+    m.textContent = 'MyShipment is not connected yet. This button will send the report there once the connection is set up.';
+  });
+
   function dvCell(v, status, scale, label) {
     var w = el('span', 'dv is-' + status);
     var axis = el('span', 'dv__axis');
@@ -136,6 +143,7 @@
     var id = ++reqId;
     setState('loading');
     $('#err').hidden = true;
+    $('#dl-msg').textContent = '';
     var rangeTxt = q.from == null && q.to == null ? 'every week of ' + q.year : 'weeks ' + (q.from || 1) + ' to ' + (q.to || 53) + ' of ' + q.year;
     P.pop($('#title'), ['Weekly ', { em: 'summary' }, ' ' + q.year]);
     P.pop($('#sub'), ['Loading ' + rangeTxt + '…']);
@@ -149,7 +157,6 @@
       P.pop($('#sub'), [none ? 'Nothing on file for ' + (q.from == null && q.to == null ? q.year : rangeTxt) + ' yet.'
         : res.weeks.length + ' week' + (res.weeks.length === 1 ? '' : 's') + ' on file, ' + def + ' short of what is still to arrive. Select a week to open its allocation.'], { delay: 200, step: 12, dur: 520 });
       if (!none) render(res);
-      $('#foot-source').textContent = 'Figures in TEU. Within half a TEU either way a week reads as balanced. Data from the backend at ' + D.API_BASE + '.';
     }, function (err) {
       if (id !== reqId) return;
       setState('error');

@@ -160,9 +160,6 @@
     $('#t-bar').classList.toggle('is-over', tp != null && tp > 100.0001);
     rollT($('#t-pct'), tp, Object.assign({ format: P.pct }, tro));
 
-    if (!live) rollT($('#f-fc'), noFc ? null : res.forecast, ro);
-    rollT($('#f-cf'), k.tot.cf, ro);
-    rollT($('#f-left'), k.left, ro);
     if (!live) rollT($('#f-tba'), noFc ? null : k.tba, ro);
     rollT($('#f-bal'), noFc ? null : k.ds, Object.assign({ format: P.teuDs }, ro));
     var row = $('#f-bal-row');
@@ -323,7 +320,6 @@
       saveBox.setAttribute('data-state', 'clean');
       paint();
       firstPaint = false;
-      $('#foot-source').textContent = 'Figures in TEU. Data from the backend at ' + D.API_BASE + '.';
       if (window.CA.cursor) window.CA.cursor.refresh();
     }, function (err) {
       if (id !== reqId) return;

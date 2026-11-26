@@ -201,11 +201,13 @@
     }, function (err) {
       saving = false;
       saveBox.setAttribute('data-state', 'error');
-      saveMsg.textContent = 'Not saved. The backend said: ' + (err.message || 'error') + '.';
+      // e.g. a user (not an administrator): "Not saved. Only an administrator can do this."
+      saveMsg.textContent = 'Not saved. ' + sentence(err.message || 'The server did not accept the change');
       saveBtn.disabled = false;
       SH.say('Settings not saved. ' + (err.message || ''));
     });
   }
+  function sentence(t) { t = String(t).trim(); return /[.!?]$/.test(t) ? t : t + '.'; }
   // test hook: lets a check send a body the form would block (the backend must reject it too)
   window.CA.settingsSend = send;
 
@@ -298,7 +300,6 @@
       fill(out[0]);
       sups = out[1];
       renderSups();
-      $('#foot-source').textContent = 'Settings apply to every week. Data from the backend at ' + D.API_BASE + '.';
     }, function (err) {
       main.setAttribute('data-state', 'error'); main.setAttribute('aria-busy', 'false');
       form.hidden = true; $('#sup').hidden = true;

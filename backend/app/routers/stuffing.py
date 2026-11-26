@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
-import io
+import logging
 import re
 from collections import defaultdict
 
@@ -11,24 +11,33 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..config_service import get_config
-from ..db import get_db
+from ..db import get_db, lock
 from ..models import DailyStuffing
-from ..utils import week_dates
+from ..utils import DATE_MAX, DATE_MIN, date_in_range, week_dates
 from ..services.data import map_line
-from ..parsers.stuffing import StuffingParseError, parse_stuffing_ex
+from ..parsers.common import FileParseError
+from ..parsers.stuffing import parse_stuffing_ex
+from ..uploads import read_xlsx_upload
+from ..validation import NonNegFloat, check_day, check_year, no_nul
 
 router = APIRouter(prefix="/stuffing", tags=["stuffing"])
+log = logging.getLogger("app.stuffing")
 
 
 @router.post("/upload")
-async def upload_stuffing(file: UploadFile = File(...), report_date: dt.date | None = None,
-                          db: Session = Depends(get_db)):
+def upload_stuffing(file: UploadFile = File(...), report_date: dt.date | None = None,
+                    db: Session = Depends(get_db)):
+    # sync def: parsing and the inserts run in the threadpool, not on the event loop
+    check_day(report_date)
+    buf = read_xlsx_upload(file, "stuffing file")
     try:
-        rows, skipped, cbm_found = parse_stuffing_ex(io.BytesIO(await file.read()), report_date)
-    except StuffingParseError as e:
+        rows, skipped, cbm_found = parse_stuffing_ex(buf, report_date)
+    except FileParseError as e:
         raise HTTPException(400, str(e))
-    except Exception as e:
-        raise HTTPException(400, f"Cannot read stuffing file: {e}")
+    except Exception:
+        log.exception("stuffing upload: cannot read %r", file.filename)
+        raise HTTPException(400, "Cannot read the stuffing file. Check that it is the daily stuffing .xlsx export.")
+    lock(db, "stuffing")  # concurrent replaces of the same date must not double rows
     line_map = get_config(db)["line_map"]
     date_set = {r["date"] for r in rows}
     if report_date is not None:
@@ -85,17 +94,19 @@ def _opt_day(v):
     if not _ISO_DAY.match(v):
         raise ValueError("must be an ISO date string YYYY-MM-DD")
     try:
-        dt.date.fromisoformat(v)
+        d = dt.date.fromisoformat(v)
     except ValueError:
         raise ValueError("is not a real calendar date")
+    if not date_in_range(d):
+        raise ValueError(f"must be between {DATE_MIN.isoformat()} and {DATE_MAX.isoformat()}")
     return v
 
 
 class StuffingRowIn(BaseModel):
     shipping_line: str
-    teus: float = Field(ge=0, allow_inf_nan=False)
-    qty: float | None = Field(default=None, ge=0, allow_inf_nan=False)
-    cbm: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    teus: NonNegFloat
+    qty: NonNegFloat | None = None
+    cbm: NonNegFloat | None = None
     feeder_vessel: str | None = Field(default=None, max_length=100)
     mother_vessel: str | None = Field(default=None, max_length=100)
     fvsl_etd: str | None = None
@@ -108,7 +119,7 @@ class StuffingRowIn(BaseModel):
     def _line(cls, v):
         if not isinstance(v, str):
             raise ValueError("shipping_line must be text")
-        v = v.strip()
+        v = no_nul(v).strip()
         if not v:
             raise ValueError("shipping_line must not be blank")
         if len(v) > 100:
@@ -122,7 +133,7 @@ class StuffingRowIn(BaseModel):
             return None
         if not isinstance(v, str):
             raise ValueError("vessel name must be text")
-        return v.strip() or None
+        return no_nul(v).strip() or None
 
     @field_validator("fvsl_etd", "fvsl_eta", "mvsl_etd", "mvsl_eta", mode="before")
     @classmethod
@@ -165,6 +176,7 @@ def _day_json(db: Session, day: dt.date) -> dict:
 def stuffing_dates(year: int, week: int, db: Session = Depends(get_db)):
     if not 1 <= week <= 53:
         raise HTTPException(422, "week must be between 1 and 53")
+    check_year(year)
     try:
         days = week_dates(year, week)
     except ValueError:
@@ -179,11 +191,14 @@ def stuffing_dates(year: int, week: int, db: Session = Depends(get_db)):
 
 @router.get("/{day}")
 def get_stuffing_day(day: dt.date, db: Session = Depends(get_db)):
+    check_day(day)
     return _day_json(db, day)
 
 
 @router.put("/{day}")
 def put_stuffing_day(day: dt.date, body: StuffingDayIn, db: Session = Depends(get_db)):
+    check_day(day)
+    lock(db, "stuffing")  # concurrent saves of the same day must not double rows
     line_map = get_config(db)["line_map"]
     try:
         db.query(DailyStuffing).filter(DailyStuffing.date == day).delete(synchronize_session=False)
@@ -201,6 +216,8 @@ def put_stuffing_day(day: dt.date, body: StuffingDayIn, db: Session = Depends(ge
 
 @router.delete("/{day}")
 def delete_stuffing_day(day: dt.date, db: Session = Depends(get_db)):
+    check_day(day)
+    lock(db, "stuffing")
     n = db.query(DailyStuffing).filter(DailyStuffing.date == day).delete(synchronize_session=False)
     db.commit()
     return {"date": day.isoformat(), "deleted": n}

@@ -66,7 +66,7 @@ def test_stuffing_report_date_param(client):
 
 
 def test_suppliers_api(client):
-    assert len(client.get("/suppliers").json()) == 12
+    assert len(client.get("/suppliers").json()) == 14
     assert client.post("/suppliers/77534.0", json={"name": "X", "cw_code": "Y"}).json()["code"] == "77534"
     assert client.delete("/suppliers/99999").status_code == 404
     up = make_xlsx([[" 90001 ", "Foo", "FOOCW"], [90002.0, "Bar", "BARCW"]], ["SUPPLIER CODE", "SUPPLIER", "CW CODE"])

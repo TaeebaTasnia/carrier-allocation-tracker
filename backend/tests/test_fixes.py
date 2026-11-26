@@ -195,21 +195,21 @@ def test_xlsx_numeric_values(client, real_rows):
     assert head[:8] == ["WEEK", "FORECAST", "TOTAL CONFIRMED", "TOTAL UTILIZED", "TO BE ARRIVED",
                         "TO BE UTILIZED", "DEFICIT/SURPLUS", "STATUS"]
     wkrow = rows[3]
-    assert wkrow[0] == "WK45" and wkrow[1] == 73  # TEU cells are whole TEU, rounded up (72.660565 -> 73)
+    assert wkrow[0] == "WK45" and wkrow[1] == 133  # TEU cells are whole TEU, rounded up (132.399505 -> 133)
     assert wkrow[7] in ("deficit", "surplus", "balanced")
     forecast_row = next(x for x in rows if x[0] == "FORECAST")
     car_head = next(x for x in rows if x[:2] == [None, "MAERSK"] or x[1:2] == ["MAERSK"])
     total_col = car_head.index("TOTAL")
-    assert forecast_row[total_col] == 73  # MGH total, no FML (72.660565 rounded up)
+    assert forecast_row[total_col] == 133  # MGH total of the 14 suppliers, no FML (132.399505 rounded up)
     assert forecast_row[car_head.index("FML")] == 10
-    assert forecast_row[car_head.index("MAERSK")] == 22  # 21.798170 rounded up
+    assert forecast_row[car_head.index("MAERSK")] == 40  # 39.719851 rounded up
 
     r = client.get("/reports/weekly-summary/download", params={"year": 2026, "from_week": 45, "to_week": 45})
     rows = _cells(r.content)
     assert rows[2][1] == "FORECAST" and rows[2][7] == "STATUS"
     wk = next(x for x in rows if x[0] == "WK45")
     tot = next(x for x in rows if x[0] == "TOTAL")
-    assert wk[1] == 73 and tot[1] == 73  # 72.660565 rounded up
+    assert wk[1] == 133 and tot[1] == 133  # 132.399505 rounded up
     assert wk[7] in ("deficit", "surplus", "balanced") and tot[7] == wk[7]
 
 

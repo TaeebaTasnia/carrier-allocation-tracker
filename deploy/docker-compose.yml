@@ -1,0 +1,142 @@
+# Production stack of the Carrier Allocation & Utilization Tracker on one Linux server:
+#   db       Postgres 16, own named volume, reachable only on the internal `data` network (no host port)
+#   migrate  one-shot: alembic upgrade head, then seed the 14 suppliers (only when the table is empty)
+#   api      FastAPI under uvicorn (2 workers), no host port; Caddy reaches it on the `edge` network
+#   caddy    the only published ports, 80 + 443: HTTPS (Let's Encrypt), static pages, /api/* -> api
+#
+# From this folder, with ./.env filled in (copy .env.example):
+#   docker compose up -d --build
+#
+# Values come from ./.env through ${...} interpolation; every service gets only the variables it needs.
+# `docker compose down -v` deletes the database volume.
+name: carrier-allocation
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+# One image for `migrate` and `api` (built from ../backend).
+x-api-image: &api-image
+  image: carrier-allocation-api:${CA_TAG:-local}
+  build:
+    context: ../backend
+
+x-database-url: &database-url postgresql+psycopg://${POSTGRES_USER:-ca}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}@db:5432/${POSTGRES_DB:-ca}
+
+services:
+  db:
+    # Exact minor version (PostgreSQL 16.16), the one the tests and migrations were run with. A minor bump
+    # (16.x) is a plain image change; a major version (17, 18, ...) needs a dump/restore of ca_pgdata.
+    image: postgres:16.16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ca}
+      POSTGRES_DB: ${POSTGRES_DB:-ca}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+      # byte-order collation: ORDER BY is the same on every machine (no OS locale dependence)
+      POSTGRES_INITDB_ARGS: "--locale=C.UTF-8"
+    volumes:
+      - ca_pgdata:/var/lib/postgresql/data
+    networks:
+      - data
+    # No `ports:`: Postgres is never published on the host.
+    healthcheck:
+      # over TCP: during first-start initialisation the temporary server listens on the socket only
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    logging: *logging
+
+  migrate:
+    <<: *api-image
+    restart: "no"
+    command: ["sh", "-c", "alembic upgrade head && python -m app.cli seed-suppliers"]
+    environment:
+      DATABASE_URL: *database-url
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - data
+    healthcheck:
+      disable: true
+    logging: *logging
+
+  api:
+    <<: *api-image
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      DATABASE_URL: *database-url
+      PUBLIC_URL: https://${DOMAIN:?set DOMAIN in deploy/.env}
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in deploy/.env}
+      OIDC_ISSUER: ${OIDC_ISSUER:?set OIDC_ISSUER in deploy/.env}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?set OIDC_CLIENT_ID in deploy/.env}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?set OIDC_CLIENT_SECRET in deploy/.env}
+      OIDC_PROVIDER_NAME: ${OIDC_PROVIDER_NAME:-}
+      OIDC_GOOGLE_HD: ${OIDC_GOOGLE_HD:-}
+      APP_ADMIN_EMAILS: ${APP_ADMIN_EMAILS:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
+      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-5}
+      DB_POOL_RECYCLE: ${DB_POOL_RECYCLE:-1800}
+      DB_LOCK_TIMEOUT_MS: ${DB_LOCK_TIMEOUT_MS:-30000}
+      # uvicorn --proxy-headers trusts X-Forwarded-For/-Proto only from the edge network (Caddy), never "*"
+      FORWARDED_ALLOW_IPS: ${CA_EDGE_SUBNET:-172.29.247.0/24}
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - edge
+      - data
+    # No `ports:`: only Caddy reaches the API.
+    healthcheck:
+      # directly on uvicorn, so no /api prefix
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=4).status == 200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging: *logging
+
+  caddy:
+    image: carrier-allocation-web:${CA_TAG:-local}
+    build:
+      context: ..
+      dockerfile: deploy/web.Dockerfile
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in deploy/.env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data        # certificates and ACME account: must survive restarts
+      - caddy_config:/config
+    depends_on:
+      - api
+    networks:
+      - edge
+    logging: *logging
+
+networks:
+  # Caddy <-> API (and the API's way out to the identity provider). Fixed subnet so uvicorn can trust
+  # proxy headers from it; change CA_EDGE_SUBNET in .env if it overlaps a network on the server.
+  edge:
+    ipam:
+      config:
+        - subnet: ${CA_EDGE_SUBNET:-172.29.247.0/24}
+  # API/migrate <-> Postgres only; no route to the outside.
+  data:
+    internal: true
+
+volumes:
+  ca_pgdata:     # the database (Docker names it carrier-allocation_ca_pgdata)
+  caddy_data:
+  caddy_config:
